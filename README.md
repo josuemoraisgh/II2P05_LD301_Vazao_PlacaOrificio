@@ -1,679 +1,1040 @@
-# Instrumentação Industrial II
-## Aula Prática 05: Medição de Vazão com Placa de Orifício e Transmissor LD301
+# Universidade Federal de Uberlândia — FEELT
 
-Esta prática apresenta a base teórica e a execução, no simulador **LasecSimul**, de uma medição de vazão por **placa de orifício** com o transmissor de pressão diferencial **Smar LD301 (HART)**, configurado pelo **PACTware**.
+## Instrumentação Industrial II · Aula Prática 05
 
-O material foi organizado para ligar, passo a passo, a física da medição ao que o transmissor faz, com foco em:
+# Medição de vazão por placa de orifício e transmissor SMAR LD301
 
-- princípio da medição de vazão por pressão diferencial;
-- equação da placa de orifício e coeficiente de descarga `C` segundo a **ISO 5167-2**;
-- influência do tipo de tomada, dos trechos retos, do material e da temperatura;
-- relação quadrática entre `ΔP` e vazão e a função **raiz quadrada** do transmissor;
-- configuração do LD301 pelo PACTware para **indicar e transmitir vazão**;
-- verificação dos resultados com um script em Python.
+Este roteiro conduz a medição de vazão por pressão diferencial com três ferramentas: o **Python** calcula a placa e os valores de projeto, o **LasecSimul** simula a planta e o transmissor LD301, e o **PACTware** parametriza o LD301 por HART. A placa usada como exemplo resolvido é a **FE-02-AR** ([foto](imagens/placa03.jpg)). As placas **FE-09-AR** e **FE-01-AR** ficam como exercícios.
 
----
+> **Situação desta revisão (22/10/2026).** Todas as etapas abaixo foram executadas nesta máquina e registradas com capturas reais das ferramentas.
+>
+> - **Python:** o script principal foi executado no terminal do VS Code para as três placas. A saída mostra geometria, vazão, Reynolds, C, ε e ΔP ([Oficina 02](#oficina-02)).
+> - **LasecSimul:** a "planta zerada" foi diagnosticada e corrigida. O pacote instalado da extensão 0.0.100 não trazia a pasta `bundled/project/schema/block-library`. Sem ela, os blocos `sl.*` apareciam como "?" e os mostradores não recebiam valores. Depois da correção, a planta FE-02-AR respondeu a 0 %, 25 %, 26 %, 50 %, 75 % e 100 % de abertura, com valores iguais aos do Python ([Oficina 03](#oficina-03)).
+> - **PACTware:** o projeto foi montado do zero numa execução contínua: Add device do HART Communication, duplo clique, `COM20`, Multimaster desmarcado em etapa própria, Add device do LD301 e projeto salvo. Em seguida: **Abrir** no modem do LasecSimul, **Connect no modem COM20** e **Connect no LD301**, em passos separados ([Oficina 04](#oficina-04)). No **Online Parameterize** foram gravados e relidos: faixa 0–1150,3 mmH₂O, função **Sqrt**, User Unit **0–15 N m³/h** e display **PV / Out(mA)**. O LCD do LD301 passou a mostrar **7.407 Nm3/h** e 11.901 mA ([Oficina 05](#oficina-05)).
+> - **Pendências reais:** veja [Validação final](#validacao-final).
 
-## Índice
+**Convenção usada em todo o roteiro.** **[P]** = lido na plaqueta fotografada. **[E]** = dado de processo **estipulado para a prática**, conforme pedido do professor. **[C]** = calculado. **[O]** = observado na tela de uma ferramenta durante a execução. Um valor [C] nunca é apresentado como leitura do simulador ou do transmissor.
 
-1. [Introdução](#1-introdução)
-2. [Princípio da medição por pressão diferencial](#2-princípio-da-medição-por-pressão-diferencial)
-3. [A placa de orifício segundo a ISO 5167-2](#3-a-placa-de-orifício-segundo-a-iso-5167-2)
-4. [Instalação: tomadas, trechos retos e rugosidade](#4-instalação-tomadas-trechos-retos-e-rugosidade)
-5. [A planta no LasecSimul](#5-a-planta-no-lasecsimul)
-6. [O transmissor LD301 na medição de vazão](#6-o-transmissor-ld301-na-medição-de-vazão)
-7. [Arquivos da prática](#7-arquivos-da-prática)
-8. [Como executar](#8-como-executar)
-9. [Conexão com o PACTware](#9-conexão-com-o-pactware)
-10. [Configuração do LD301 para vazão](#10-configuração-do-ld301-para-vazão)
-11. [Ferramenta de apoio em Python](#11-ferramenta-de-apoio-em-python)
-12. [Sugestão de atividade experimental](#12-sugestão-de-atividade-experimental)
-13. [Conclusão](#13-conclusão)
-14. [Referências](#14-referências)
-15. [Apêndice: lista de imagens](#15-apêndice-lista-de-imagens)
+<details open>
+<summary><strong>📑 Índice geral</strong></summary>
 
----
+- [Apresentação, objetivos e competências](#apresentacao)
+- [Parte I — Fundamentação](#parte-i)
+  - [Problema de engenharia](#fundamentos)
+  - [Placa de orifício e ISO 5167-2](#iso-5167)
+  - [Placas fotografadas e folhas de dados](#folhas-dados-placas)
+  - [LD301, HART e PACTware](#teoria-ld301-pactware)
+  - [Leitura aplicada do manual do LD301](#manual-ld301)
+  - [LasecSimul e planta do projeto](#teoria-lasecsimul)
+  - [Python no projeto](#teoria-python)
+  - [Arquitetura e caminhos de dados](#arquitetura)
+- [Pré-requisitos e arquivos](#pre-requisitos)
+- [Parte II — Oficinas](#parte-ii)
+  - [Oficina 01 — Reconhecer o sistema](#oficina-01)
+  - [Oficina 02 — Calcular as placas em Python](#oficina-02)
+  - [Oficina 03 — Preparar e validar a planta no LasecSimul](#oficina-03)
+  - [Oficina 04 — Montar o caminho HART no PACTware e conectar o LD301](#oficina-04)
+  - [Oficina 05 — Parametrizar o LD301 como transmissor de vazão (FE-02-AR)](#oficina-05)
+  - [Oficina 06 — Exercícios FE-09-AR e FE-01-AR](#oficina-06)
+  - [Oficina 07 — Diagnosticar e avaliar](#oficina-07)
+- [Validação final e pendências](#validacao-final)
+- [Diagnóstico de problemas](#diagnostico)
+- [Glossário](#glossario)
+- [Referências](#referencias)
+- [Apêndices](#apendices)
 
-## 1. Introdução
-
-A **placa de orifício** é o elemento primário de vazão mais usado na indústria. Trata-se de uma chapa fina com um furo calibrado, instalada entre dois flanges da tubulação. Ao passar pelo furo, o fluido acelera e sua pressão cai. Essa queda de pressão, medida antes e depois da placa, está relacionada à vazão.
-
-Esse tipo de medição é amplamente utilizado em:
-
-- linhas de água, vapor, óleo e gás;
-- controle de vazão em malhas de processo;
-- medição fiscal e de transferência de custódia (gás natural);
-- sistemas de utilidades industriais.
-
-As placas de orifício se destacam por apresentarem:
-
-- construção simples e baixo custo;
-- ausência de partes móveis;
-- norma internacional completa (**ISO 5167**), que permite calcular a vazão sem calibração em laboratório;
-- uso de transmissores de pressão diferencial padronizados, como o LD301.
-
-Como desvantagens, apresentam perda de carga permanente e relação **quadrática** entre vazão e pressão diferencial, o que limita a rangeabilidade.
-
-**Figura 1. Placa de orifício concêntrica**
-
-![Figura 1](assets/fig01_placa_orificio.jpg)
-
-> **Imagem a inserir:** foto de uma placa de orifício concêntrica real, de preferência segurada pela haste (aba de identificação), mostrando o furo central, a aresta viva do lado de montante e o chanfro (bisel) do lado de jusante. Se possível, uma segunda foto da placa montada entre dois flanges com as tomadas de pressão. As fotos `placa01.jpg` a `placa03.jpg` da pasta antiga da prática podem ser reaproveitadas.
+</details>
 
 ---
 
-## 2. Princípio da medição por pressão diferencial
+<a id="apresentacao"></a>
+## Apresentação, objetivos e competências
 
-### 2.1 Bernoulli e continuidade
+### Objetivo geral
 
-Considere a seção 1, na tubulação (diâmetro `D`, velocidade `V_1`), e a seção 2, no orifício (diâmetro `d`, velocidade `V_2`). Para um fluido incompressível e sem perdas, a equação de **Bernoulli** entre as duas seções, na mesma altura, é:
+Relacionar a vazão que passa por uma placa de orifício com a pressão diferencial medida pelo LD301 e com a indicação de vazão produzida pela extração de raiz quadrada no transmissor. A planta do LasecSimul, a parametrização no PACTware e o cálculo em Python são comparados no mesmo ponto de operação.
 
-$$
-P_1 + \frac{1}{2}\rho V_1^2 = P_2 + \frac{1}{2}\rho V_2^2
-$$
+### Competências
 
-e a equação da **continuidade** é:
+Ao concluir as atividades, o estudante deverá conseguir:
 
-$$
-V_1 \frac{\pi D^2}{4} = V_2 \frac{\pi d^2}{4}
-\quad\Rightarrow\quad
-V_1 = \beta^2 V_2
-$$
+1. Explicar a relação entre vazão, pressão diferencial, razão de diâmetros e propriedades do fluido.
+2. Converter vazão normal (Nm³/h) em vazão nas condições de operação (m³/h) e calcular o ΔP de projeto.
+3. Executar o cálculo em Python e interpretar Reynolds, C, ε, ΔP e URV.
+4. Configurar a placa no LasecSimul e validar a resposta da planta antes de mexer no transmissor.
+5. Conectar o canal HART e o dispositivo no PACTware e distinguir as páginas online das offline.
+6. Gravar e reler faixa, função raiz, User Unit e display do LD301, e conferir a indicação de vazão no LCD.
+7. Reconhecer os limites de validade da ISO 5167-2 e não confundir resultado didático com dimensionamento certificado.
 
-onde a **razão de diâmetros** é:
+### Como usar a série
 
-$$
-\beta = \frac{d}{D}
-$$
-
-Substituindo `V_1` em Bernoulli e chamando `ΔP = P_1 − P_2`:
-
-$$
-V_2 = \sqrt{\frac{2\,\Delta P}{\rho\,(1-\beta^4)}}
-$$
-
-### 2.2 Equação da vazão
-
-Multiplicando pela área do orifício e corrigindo os efeitos reais (contração do jato, atrito, posição das tomadas) com o **coeficiente de descarga** `C`, e a compressibilidade com o **fator de expansibilidade** `ε`, chega-se à equação da placa de orifício:
-
-$$
-Q = C\,\varepsilon\,\frac{\pi d^2}{4}\sqrt{\frac{2\,\Delta P}{\rho\,(1-\beta^4)}}
-$$
-
-Onde:
-
-- `Q` é a vazão volumétrica nas condições de operação (m³/s);
-- `C` é o coeficiente de descarga (adimensional, em torno de 0,6);
-- `ε` é o fator de expansibilidade (`ε = 1` para líquidos);
-- `d` é o diâmetro do orifício (m);
-- `ΔP` é a pressão diferencial entre as tomadas (Pa);
-- `ρ` é a massa específica do fluido a montante (kg/m³).
-
-Isolando `ΔP`, obtém-se a forma usada pelo simulador:
-
-$$
-\Delta P = \frac{8\,\rho\,(1-\beta^4)\,Q^2}{C^2\,\varepsilon^2\,\pi^2\,d^4}
-$$
-
-### 2.3 A relação quadrática
-
-A equação mostra que **`ΔP` cresce com o quadrado da vazão**:
-
-$$
-\frac{\Delta P}{\Delta P_{max}} \approx \left(\frac{Q}{Q_{max}}\right)^2
-$$
-
-Assim, metade da vazão produz apenas um quarto da pressão diferencial, e 10 % da vazão produzem só 1 % do `ΔP`. Por isso o transmissor precisa **extrair a raiz quadrada** para que a corrente 4–20 mA seja proporcional à vazão (seção 6).
-
-### 2.4 Perfil de pressão e perda permanente
-
-Depois da placa, o jato continua se contraindo até a **vena contracta**, onde a pressão é mínima, e então se expande, recuperando parte da pressão. A parcela não recuperada é a **perda de carga permanente**:
-
-$$
-\Delta\omega = \frac{\sqrt{1-\beta^4(1-C^2)} - C\beta^2}{\sqrt{1-\beta^4(1-C^2)} + C\beta^2}\,\Delta P
-$$
-
-**Figura 2. Perfil de pressão ao longo da placa de orifício**
-
-![Figura 2](assets/fig02_perfil_pressao.png)
-
-> **Imagem a inserir:** desenho em corte de um trecho de tubulação com a placa de orifício e, logo abaixo, um gráfico da pressão estática ao longo do eixo da tubulação. O gráfico deve mostrar a pressão a montante `P_1`, a queda até o mínimo na vena contracta (um pouco depois da placa), a recuperação parcial a jusante e, indicadas com cotas, a pressão diferencial medida `ΔP` e a perda permanente `Δω`. Desenhe as linhas de corrente se contraindo no orifício e se expandindo depois.
+Siga as oficinas na ordem. Registre a configuração **antes** de cada alteração, altere um parâmetro por vez e só aceite uma gravação depois de relê-la. Os valores calculados servem de referência; compare-os com o que a planta e o transmissor mostram, sem ajustar os dados observados para coincidir com o cálculo.
 
 ---
 
-## 3. A placa de orifício segundo a ISO 5167-2
+<a id="parte-i"></a>
+# Parte I — Fundamentação
 
-### 3.1 Coeficiente de descarga de Reader-Harris/Gallagher
+<a id="fundamentos"></a>
+## Problema de engenharia
 
-A ISO 5167-2 dá o coeficiente de descarga `C` de uma placa concêntrica de aresta viva pela equação de **Reader-Harris/Gallagher**:
+Uma linha industrial precisa medir vazão sem um medidor com partes móveis. A placa de orifício cria uma restrição conhecida: o fluido acelera no furo e a pressão estática cai. Duas tomadas levam as pressões a um transmissor diferencial. O transmissor converte a diferença de pressão num sinal de 4–20 mA e permite, por HART, ler e escrever a configuração.
 
-$$
-\begin{aligned}
-C ={}& 0{,}5961 + 0{,}0261\beta^2 - 0{,}216\beta^8 + 0{,}000521\left(\frac{10^6\beta}{Re_D}\right)^{0{,}7} \\
-&+ \left(0{,}0188 + 0{,}0063A\right)\beta^{3{,}5}\left(\frac{10^6}{Re_D}\right)^{0{,}3} \\
-&+ \left(0{,}043 + 0{,}080e^{-10L_1} - 0{,}123e^{-7L_1}\right)\left(1 - 0{,}11A\right)\frac{\beta^4}{1-\beta^4} \\
-&- 0{,}031\left(M_2' - 0{,}8M_2'^{\,1{,}1}\right)\beta^{1{,}3}
-\end{aligned}
-$$
+A cadeia tem uma variável de processo (vazão), um elemento primário (placa), uma variável intermediária (pressão diferencial), um transmissor, um sinal analógico e um canal digital sobreposto. A simulação permite variar a abertura da válvula sem operar uma linha pressurizada. Ela não substitui calibração, avaliação de incerteza nem validação de instalação em campo.
 
-com:
+O PACTware é a aplicação de configuração. O DTM (*Device Type Manager*) é o componente de software que fornece as telas específicas de cada equipamento. O script Python é uma ferramenta de cálculo e comparação; ele não se comunica com o PACTware nem com o LasecSimul.
 
-$$
-A = \left(\frac{19000\,\beta}{Re_D}\right)^{0{,}8}
-\qquad
-M_2' = \frac{2L_2'}{1-\beta}
-\qquad
-Re_D = \frac{4\,\rho\,Q}{\pi\,\mu\,D}
-$$
+<a id="iso-5167"></a>
+## Placa de orifício, Bernoulli e ISO 5167-2
 
-Quando `D < 71,12 mm`, soma-se ainda o termo de tubulação pequena:
+### Derivação ideal
 
-$$
-+\;0{,}011\,(0{,}75-\beta)\left(2{,}8 - \frac{D}{25{,}4}\right)
-$$
+Para escoamento permanente, incompressível, horizontal e sem perdas, Bernoulli entre a seção a montante e a seção contraída dá:
 
-Onde:
+\[
+P_1+\frac{\rho V_1^2}{2}=P_2+\frac{\rho V_2^2}{2}.
+\]
 
-- `Re_D` é o número de Reynolds na tubulação;
-- `μ` é a viscosidade dinâmica do fluido (Pa·s);
-- `L_1` é a distância da tomada de alta à face de montante da placa, dividida por `D`;
-- `L_2'` é a distância da tomada de baixa à face de jusante da placa, dividida por `D`.
+A continuidade entre o tubo de diâmetro interno `D` e o orifício de diâmetro `d` dá `V₁ = β²V₂`, com `β = d/D`. Definindo `ΔP = P₁ − P₂`:
 
-Observe que **`C` depende de `Re_D`**, portanto da própria vazão. Ele não é uma constante: varia pouco, mas varia.
+\[
+V_2=\sqrt{\frac{2\Delta P}{\rho(1-\beta^4)}}.
+\]
 
-### 3.2 Fator de expansibilidade
+O termo `1 − β⁴` vem da velocidade não nula no tubo a montante.
 
-Para gases, a queda de pressão no orifício expande o fluido. A ISO 5167-2 corrige isso com:
+### Equação de vazão
 
-$$
-\varepsilon = 1 - \left(0{,}351 + 0{,}256\beta^4 + 0{,}93\beta^8\right)\left[1 - \left(\frac{p_2}{p_1}\right)^{1/\kappa}\right]
-$$
+A equação prática inclui o coeficiente de descarga `C` e, para gases, o fator de expansibilidade `ε`:
 
-Onde `κ` é o expoente isentrópico do gás e `p_1`, `p_2` são as pressões absolutas nas tomadas. Para líquidos, `ε = 1`.
+\[
+Q=C\varepsilon\frac{\pi d^2}{4}\sqrt{\frac{2\Delta P}{\rho(1-\beta^4)}},\qquad
+\Delta P=\frac{8\rho(1-\beta^4)Q^2}{C^2\varepsilon^2\pi^2d^4}.
+\]
 
-### 3.3 Faixa de validade
+`Q` é a vazão volumétrica nas condições de operação (m³/s), `ρ` a massa específica a montante (kg/m³), `ΔP` em Pa, e os diâmetros em metros. Para líquidos, `ε = 1`. Para gases, o modelo usa a expressão da ISO 5167-2, que depende de `β`, de `p₂/p₁` (pressões absolutas) e do expoente isentrópico `κ`.
 
-A equação só vale dentro dos limites da norma:
+Mantidos os demais termos, `ΔP ∝ Q²`: metade da vazão produz cerca de um quarto do ΔP. O desvio dessa proporção vem da variação de `C` com o número de Reynolds e de `ε` com o ΔP.
 
-- `d ≥ 12,5 mm`;
-- `50 mm ≤ D ≤ 1000 mm`;
-- `0,1 ≤ β ≤ 0,75`;
-- `Re_D ≥ 5000`; com tomadas de flange, também `Re_D ≥ 170\,β^2 D` (D em mm);
-- com tomadas de canto ou D e D/2 e `β > 0,56`, `Re_D ≥ 16000\,β^2`;
-- para gases, `p_2/p_1 ≥ 0,75`.
+### Coeficiente de descarga e regime
 
-### 3.4 Correção de temperatura
+O Python e a planta usam a equação de Reader–Harris/Gallagher para `C`, com tomada, `β`, `Re_D` e o termo de tubo pequeno quando `D < 71,12 mm`. O número de Reynolds é:
 
-`D` e `d` são medidos a 20 °C. Na temperatura de operação `T`, cada um dilata conforme o seu material:
+\[
+Re_D=\frac{4\rho Q}{\pi\mu D},
+\]
 
-$$
-D_T = D_{20}\left[1 + \alpha_{tubo}\,(T-20)\right]
-\qquad
-d_T = d_{20}\left[1 + \alpha_{placa}\,(T-20)\right]
-$$
+com `μ` em Pa·s. Como `C` depende de `Re_D`, que depende de `Q`, obter `Q` a partir de `ΔP` exige iteração. O script parte de `C = 0,6` e repete o cálculo até convergir (no máximo 50 iterações). No caminho direto (abertura → vazão → ΔP), `C` sai direto e só `ε` é iterado.
 
----
+A ISO 5167-2 define limites para placas padronizadas, entre eles `50 mm ≤ D ≤ 1000 mm`, `d ≥ 12,5 mm`, `0,10 ≤ β ≤ 0,75`, Reynolds mínimo conforme tomada e `β`, e `p₂/p₁ ≥ 0,75` para `ε`. As três placas desta prática têm `D < 50 mm`, portanto estão **fora** do escopo da norma. Os coeficientes são extrapolados como recurso didático ([escopo oficial da ISO 5167-2:2022](https://www.iso.org/standard/79180.html)).
 
-## 4. Instalação: tomadas, trechos retos e rugosidade
+A pressão cai após a placa, atinge um mínimo próximo da *vena contracta* e se recupera parcialmente. A perda permanente é a diferença entre a pressão a montante e a pressão recuperada; ela é menor que o ΔP entre as tomadas e não deve ser usada como URV.
 
-### 4.1 Tipos de tomada
+### Instalação e grandezas que influenciam o resultado
 
-A ISO 5167-2 admite três posições para as tomadas de pressão. Cada uma entra na equação de `C` pelos valores de `L_1` e `L_2'`:
+O modelo oferece três tomadas: flange (25,4 mm de cada face), D e D/2, e canto. A tomada altera `C`. Curvas, válvulas e rugosidade alteram o perfil de velocidade. A tabela de trechos retos usada pelo modelo representa uma curva de 90° a montante. As folhas desta prática usam 44D a montante e 8D a jusante.
 
-| Tomada | Posição | `L_1` | `L_2'` |
-|---|---|---:|---:|
-| Flange | 25,4 mm de cada face da placa, furadas nos flanges | `25,4/D` | `25,4/D` |
-| D e D/2 (*radius taps*) | 1·D antes e 0,5·D depois da placa | 1 | 0,47 |
-| Canto (*corner taps*) | rente às faces da placa | 0 | 0 |
+`D` e `d` são corrigidos pela dilatação térmica a partir de 20 °C. Como todas as folhas estipulam 20 °C, a correção é nula. A opção **desvio didático** aumenta artificialmente o `C` quando certos critérios de instalação ou rugosidade falham. Ela é um recurso de demonstração do projeto, não uma correção da ISO, e fica **desligada** nas três folhas.
 
-**Figura 3. Posição das tomadas de flange, D e D/2 e de canto**
+<a id="folhas-dados-placas"></a>
+### Placas fotografadas e folhas de dados
 
-![Figura 3](assets/fig03_tipos_tomada.png)
+As fotos fornecem a geometria [P]. Os dados de processo, ausentes nas plaquetas, foram **estipulados para a prática** [E]: ar seco a 20 °C, 200 kPa manométricos a montante, vazão normal referida a 0 °C e 101,325 kPa absolutos, tomadas de canto, 44D/8D, desvio didático desligado. A tag e os números da FE-02-AR e da FE-09-AR estão nítidos. Na placa01.jpg, um reflexo cobre a tag, mas com ampliação os números são legíveis. A identificação **FE-01-AR** dessa placa foi informada pelo professor.
 
-> **Imagem a inserir:** desenho em corte de uma placa de orifício entre flanges, com as três alternativas de tomada lado a lado (ou sobrepostas em cores diferentes): tomadas de canto rentes à placa; tomadas de flange a 25,4 mm (1") de cada face, furadas nos próprios flanges; tomadas D e D/2 na tubulação, a uma distância `D` antes e `D/2` depois da placa. Cote as distâncias e identifique as tomadas de alta (+) e de baixa (−).
+<table><tr><td><img src="imagens/placa01.jpg" alt="Plaqueta FE-01-AR (placa01.jpg)" width="300"></td><td><img src="imagens/placa02.jpg" alt="Plaqueta FE-09-AR (placa02.jpg)" width="300"></td><td><img src="imagens/placa03.jpg" alt="Plaqueta FE-02-AR (placa03.jpg)" width="300"></td></tr><tr><td>placa01.jpg — FE-01-AR, 3/4", D = 20,93 mm, d/D = 0,7488, d = 15,673 mm</td><td>placa02.jpg — FE-09-AR, 1/2", D = 15,8 mm, d/D = 0,1154, d = 1,824 mm</td><td>placa03.jpg — FE-02-AR, 1/2", D = 15,8 mm, d/D = 0,395, d = 6,255 mm</td></tr></table>
 
-### 4.2 Trechos retos
+| Placa | Papel | D / d [P] | β [C] | Qₙ,max [E] | Qmax no LasecSimul [C] | ΔPmax [C] | URV do LD301 [C] | Folha |
+|---|---|---:|---:|---:|---:|---:|---:|---|
+| FE-02-AR | exemplo resolvido | 15,8 / 6,255 mm | 0,395886 | 15 Nm³/h | 5,413291 m³/h | 11,2802 kPa | 1150,3 mmH₂O | [abrir](FOLHA_DADOS_FE_02_AR.md) |
+| FE-09-AR | exercício | 15,8 / 1,824 mm | 0,115443 | 1,5 Nm³/h | 0,541329 m³/h | 15,8621 kPa | 1617,5 mmH₂O | [abrir](FOLHA_DADOS_FE_09_AR.md) |
+| FE-01-AR | exercício | 20,93 / 15,673 mm | 0,748829 | 30 Nm³/h | 10,826583 m³/h | 0,7897 kPa | 80,5 mmH₂O | [abrir](FOLHA_DADOS_FE_01_AR.md) |
 
-Curvas, válvulas e reduções deformam o perfil de velocidade. Para que a equação de `C` seja válida, a placa precisa de **trechos retos** mínimos antes (montante) e depois (jusante). Para **uma curva de 90° a montante**, a Tabela 3 da ISO 5167-2 pede, em múltiplos de `D`:
+**Correção desta revisão (FE-01-AR).** A revisão anterior havia lido `d ≈ 8,89 mm` e `β ≈ 0,425` na placa01.jpg e calculado URV ≈ 1123,2 mmH₂O. Com a imagem ampliada, a plaqueta mostra `d/D = 0,7488` e `d = 15,673 mm`, e 15,673/20,93 = 0,748829 confirma a coerência. Com o furo correto, o ΔP máximo cai para 0,79 kPa (≈ 80,5 mmH₂O). A folha, o script de preparação do LasecSimul e o README2.md foram corrigidos.
 
-| β | Montante sem incerteza adicional | Montante mínimo (+0,5 % de incerteza) | Jusante |
-|---:|---:|---:|---:|
-| ≤ 0,20 | 6 | 3 | 4 |
-| 0,40 | 16 | 3 | 6 |
-| 0,50 | 22 | 9 | 6 |
-| 0,60 | 42 | 13 | 7 |
-| 0,67 | 44 | 20 | 7 |
-| 0,75 | 44 | 20 | 8 |
+**Conversão Nm³/h → m³/h.** Pela lei dos gases ideais, `ρₙ = pₙ/(R·Tₙ) = 1,292284 kg/m³` e `ρ₁ = p₁,abs/(R·T₁) = 3,580863 kg/m³`, com `R = 287,05 J/(kg·K)`. A massa se conserva, portanto `Q₁ = Qₙ·ρₙ/ρ₁ = 0,360886·Qₙ`. O LasecSimul e o Python trabalham com `Q₁`, a vazão nas condições de operação. O LD301 é configurado para indicar `Qₙ`. Como p₁ e T₁ são fixos nesta prática, `Qₙ` e `Q₁` são proporcionais, e a escala 0–15 N m³/h corresponde a 0–5,413 m³/h.
 
-Para `β` intermediário, vale a linha do `β` maior seguinte.
+<a id="teoria-ld301-pactware"></a>
+## LD301, laço 4–20 mA, HART e PACTware
 
-**Figura 4. Trechos retos a montante e a jusante da placa**
+O transmissor do projeto é o **SMAR LD301 (HART) — tag FT100**. Sua medida primária é pressão em `mmH2O@20°C`, calculada no simulador como `HIGH − LOW`. A corrente do laço é a saída. O código de pedido gravado no transmissor simulado é `LD301M21ITD10011-I6P0`. Pelo manual (p. 5.20), **M2** designa um sensor manométrico de −50 a 50 kPa; o simulador o usa como diferencial. Numa instalação real de vazão se especificaria um modelo diferencial (série D), com faixa adequada ao ΔP de projeto.
 
-![Figura 4](assets/fig04_trechos_retos.png)
+No PACTware, o DTM **HART Communication** representa o canal ou modem, e o DTM **LD301** apresenta as funções do transmissor. As páginas de **Online Parameterize** leem e escrevem no dispositivo. As de **Offline Parameterize** editam apenas o conjunto de dados do projeto. Editar um valor offline não prova que ele foi gravado no transmissor.
 
-> **Imagem a inserir:** desenho isométrico ou em planta de uma linha com a entrada por uma curva de 90°, o trecho reto a montante (cotado como `L montante = n·D`), a placa de orifício entre flanges, o trecho reto a jusante (cotado como `L jusante = n·D`) e, no fim, uma válvula de controle. Indique o sentido do escoamento com setas e mostre as tomadas descendo até o transmissor de pressão diferencial.
+O modem HART do esquema usa a porta `CNCB0`. O com0com cria o par virtual `COM20 ↔ CNCB0`, e o PACTware usa `COM20`. O Python não participa desse caminho.
 
-### 4.3 Rugosidade
+**Configuração encontrada no arquivo do projeto.** PV em `mmH2O@20C`, LRV = 0, URV = 3376,3, função linear e corte da raiz em 6 % no modo Hard. A **User Unit está ligada** (`On`), com escala 243–800 e unidade `mm`, herança do exemplo de nível do manual. O display mostra PV % e temperatura. A revisão anterior dizia que a User Unit estava desligada. O arquivo (`userUnit.byte0 = 0`, código `On`) e a leitura online ([captura](assets/pw_n46_user_unit_antes.png)) mostram que está ligada. Com isso, a PV inicial em `mm` não tem significado de vazão.
 
-A rugosidade interna da tubulação também altera `C`. A norma limita a razão `10^4·Ra/D` (Tabela 1 da ISO 5167-2). Para `β = 0,6`, o limite é cerca de 4,1. Tubos de ferro fundido ou galvanizados de pequeno diâmetro ultrapassam esse limite.
+<a id="manual-ld301"></a>
+### Leitura aplicada do manual do LD301
 
----
+As páginas citadas são as **impressas** no [MANUAL_LD301.pdf](MANUAL_LD301.pdf), com a página do PDF entre parênteses.
 
-## 5. A planta no LasecSimul
+| Manual | O que diz | Como entra nesta prática |
+|---|---|---|
+| p. 3.8 (PDF 36) — Calibração | No modo transmissor, o Valor Inferior corresponde a 4 mA e o Superior a 20 mA. LRV e URV devem respeitar os limites do sensor e o span mínimo. | O URV é a pressão diferencial na vazão máxima (1150,3 mmH₂O), nunca a própria vazão. |
+| p. 3.9 (PDF 37) — Tabela 3.1 | A referência interna é inH₂O@20 °C; as demais unidades são convertidas por fator. | `mmH2O@20°C` vale 248,642/25,4 = 9,7891 Pa. O Python e a planta usam 9,80665 Pa (mmH₂O convencional). Veja a nota de unidades abaixo. |
+| p. 3.9 (PDF 37) — Unidade do Usuário e Tabela 3.2 | 0 % da User Unit ↔ Valor Inferior; 100 % ↔ Valor Superior. A consistência é responsabilidade do usuário. | Com raiz quadrada, 0–100 % da saída ↔ 0–15 N m³/h. |
+| p. 3.10 (PDF 38) — User Unit e código 253 | Com User Unit desabilitada, a PV é mostrada em %. Habilitada, a PV é a pressão após a função de transferência, na unidade escolhida. O código 253 permite unidade especial de 5 caracteres. | O DTM 3.03 oferece `N m3/h` na família Volumetric Flow; não foi preciso usar o código 253. |
+| p. 3.10–3.11 (PDF 38–39) — RAIZ e Figura 3.5 | Saída = 10√x. Ponto de corte ajustável, padrão de 6 % da faixa de pressão. Abaixo do corte, o modo Suave segue linear em ΔP e o modo Abrupto leva a saída a 0 %. | O transmissor simulado está em 6 %, Abrupto (Hard). Comportamento verificado a 25 % e 26 % de abertura. |
+| p. 3.15 (PDF 43) — Filtro, display | Damping de 0 a 128 s além dos 140 ms do sensor. Até duas variáveis no display, alternadas a cada 3 s (Tabela 3.4). | Damping mantido em 0. Display configurado em PV e corrente. |
+| p. 3.16 (PDF 44) — Proteção de escrita | Há trava por software e por hardware. | Se uma gravação falhar, verifique a proteção antes de suspeitar da comunicação. |
+| p. 4.13–4.14 (PDF 59–60) — Tabela 4.5 | Funções: linear, SQR, SQR3, SQR5, tabela e combinações. | A lista do DTM (Linear, Sqrt, Sqrt + Table, Sqrt**3, Sqrt**5, Table, Table + Sqrt) coincide com o manual. |
+| p. 5.20 (PDF 92) — Faixas do sensor | Faixa 2 (D2/M2): −50 a 50 kPa, span mínimo 0,42 kPa. | O DTM mostra URL ±5107,7451 mmH₂O@20 °C (= 50 kPa) e span mínimo 25,5387 mmH₂O@20 °C (≈ 0,25 kPa). A diferença no span mínimo deve ser registrada como divergência entre o manual e o simulador. |
 
-O projeto [`placa_orificio_ld301.lsproj`](placa_orificio_ld301.lsproj) reproduz uma linha de água com uma placa de orifício, uma válvula de controle no fim do trecho a jusante e o transmissor LD301 ligado às tomadas. A planta vem **incorporada ao projeto**: não é preciso instalar nada além do LasecSimul (versão **0.0.83 ou mais nova**).
+**Nota de unidades.** O Python e o bloco `dp_mm` da planta usam 1 mmH₂O = 9,80665 Pa. O LD301 rotula a unidade como `mmH2O@20C` (código HART 4), que vale 9,7891 Pa. **No simulador**, o LD301 recebe `HIGH − LOW` já em mmH₂O e não converte; por isso o URV que coincide com a planta é 1150,3. Num **transmissor real**, o mesmo ΔP de 11,2802 kPa vale 1152,3 mmH₂O@20 °C, uma diferença de 0,18 %. Para evitar ambiguidade em campo, use kPa (URV = 11,280 kPa). O script agora imprime os dois valores.
 
-**Figura 5. Projeto completo no LasecSimul**
+**Sequência de configuração derivada do manual.** (1) ler e registrar a configuração existente; (2) gravar unidade, LRV e URV de pressão; (3) gravar a função raiz e conferir corte e modo; (4) habilitar e escalar a User Unit; (5) ajustar damping e display; (6) reler cada página e comparar com a planta.
 
-![Figura 5](assets/fig05_projeto_completo.png)
+<a id="teoria-lasecsimul"></a>
+## LasecSimul e planta do projeto
 
-> **Imagem a inserir:** captura de tela do LasecSimul com o projeto `placa_orificio_ld301.lsproj` aberto e a simulação **rodando** (selo verde "Running"). Devem aparecer: o slider "Válvula de controle (%)" à esquerda, a planta da placa de orifício no centro, o LD301 à direita com a fonte de 24 V, o resistor de 250 Ω, o amperímetro, o modem HART e o osciloscópio. Use o botão de "ajustar tudo à tela".
+O subsistema **Placa de orifício (vazão por ΔP)** recebe a abertura da válvula (0–100 %) e impõe `Q = Qmax·u/100`. Em seguida aplica um atraso de primeira ordem de 1 s e calcula geometria, Reynolds, `C`, `ε`, `ΔP` e as pressões HIGH e LOW. HIGH e LOW alimentam o LD301. O circuito de sinal tem fonte de 24 V, resistor de 250 Ω, amperímetro, modem HART e osciloscópio.
 
-### 5.1 O que a planta calcula
+O modelo interno usa blocos da biblioteca equivalente ao Simulink (`sl.fcn`, `sl.mux`, `sl.gain`, `sl.discrete_transfer_fcn`) e constantes `control.constant`. As **Propriedades exportadas** do bloco da placa são `D`, `d`, tomada, trechos retos, materiais, temperatura, fluido, `ρ`, `μ`, `κ`, `p1`, `Qmax` e desvio didático.
 
-- a **válvula** (0–100 %, pelo slider) impõe a vazão `Q = Qmax·u/100`, com um atraso de primeira ordem de 1 s;
-- `D` e `d` são corrigidos para a temperatura de operação;
-- `C` vem da equação de Reader-Harris/Gallagher da seção 3, para a tomada escolhida;
-- `ε` vem da equação da norma quando o fluido é gás;
-- a tomada de **alta (HIGH)** recebe a pressão a montante `p_1`, e a de **baixa (LOW)** recebe `p_1 − ΔP`, ambas em mmH2O, que é a unidade do LD301.
+**Histórico do modelo.** A versão do projeto gravada no git usava blocos antigos `control.calc_expression`. Ao abrir o projeto, a extensão migrou automaticamente 43 blocos para `sl.*` e guardou o original em [`lasecsimul-migration-backup/`](lasecsimul-migration-backup/). O modelo migrado é idêntico ao modelo de referência distribuído com a extensão (`bundled/subcircuits/process_orifice_flow_dp.lssubcircuit`): componentes, ligações, interface e símbolo coincidem. A migração estava correta. O defeito estava na instalação da extensão, como mostra a [Oficina 03](#oficina-03).
 
-### 5.2 Parâmetros (Propriedades exportadas)
+<a id="teoria-python"></a>
+## Python no projeto
 
-Selecione a planta e abra o painel **Properties** → **Propriedades exportadas**. Os valores mudam com a simulação rodando:
+O script principal é [`placa_orificio_calculo.py`](placa_orificio_calculo.py). Ele usa apenas a biblioteca padrão (`argparse`, `math`, `sys`). Implementa as mesmas equações dos blocos da planta: geometria com dilatação, `C` de Reader–Harris/Gallagher, `ε`, Reynolds, perda permanente, conformidade e conversões entre ΔP, corrente e vazão. Os modos de execução são `--valvula`, `--dp`, `--corrente`, `--autoteste` ou perguntas interativas. Os parâmetros da placa podem ser passados na linha de comando (`--D`, `--d`, `--rho`, `--Qmax` etc.).
 
-| Parâmetro | Padrão |
-|---|---|
-| Diâmetro interno da tubulação D (a 20 °C) | 52,5 mm (2" sch 40) |
-| Diâmetro do orifício d (a 20 °C) | 31,5 mm (β = 0,6) |
-| Tipo de tomada de pressão | Flange |
-| Trecho reto a montante (da curva até a placa) | 44 D |
-| Trecho reto a jusante (da placa até a válvula) | 8 D |
-| Material da tubulação | Aço carbono |
-| Material da placa de orifício | Aço inox AISI 316 |
-| Temperatura de operação | 20 °C |
-| Fluido | Líquido |
-| Massa específica na operação | 998,2 kg/m³ (água a 20 °C) |
-| Viscosidade dinâmica | 1,002 cP |
-| Expoente isentrópico κ (gás) | 1,4 |
-| Pressão a montante (manométrica) | 200 kPa |
-| Vazão máxima (válvula 100 %) | 15 m³/h |
-| Desvio didático de instalação e rugosidade | Aplicar |
+Trecho do cálculo direto (o mesmo que a planta faz):
 
-O **desvio didático** é um recurso de aula e não faz parte da norma. Quando a instalação foge da norma (trecho reto curto ou tubo rugoso), ele aumenta o `C` real em até 2 % para que a turma veja o erro de medição. Pode ser desligado.
-
-**Figura 6. Detalhe da planta da placa de orifício**
-
-![Figura 6](assets/fig06_planta.png)
-
-> **Imagem a inserir:** captura ampliada só da planta, com a simulação rodando e a válvula em 100 %. Devem estar visíveis: a entrada pela curva de 90°, a tubulação com as setas de fluxo, a placa de orifício entre flanges (FE), a válvula de controle (FV) com o selo "100 %", as lâmpadas "Tipo de tomada" (Flange acesa) e "Conformidade com a ISO 5167-2" (todas verdes), os displays de medição (Vazão 15,00 m³/h, Reynolds 100668, C 0,6124, ΔP 3376 mmH2O) e os displays de parâmetros em amarelo. Use o botão "ajustar seleção" com a planta selecionada.
-
-**Figura 7. Propriedades exportadas da planta**
-
-![Figura 7](assets/fig07_propriedades_exportadas.png)
-
-> **Imagem a inserir:** captura do painel **Properties** com a planta selecionada, rolado até "Propriedades exportadas", mostrando os campos numéricos (D, d, trechos retos, temperatura...) e as caixas de seleção (tipo de tomada aberta, mostrando Flange / D e D/2 / Canto).
-
-### 5.3 Resultados com os valores padrão
-
-| Válvula | Q (m³/h) | Re_D | C | ΔP (mmH2O) | ΔP (% da faixa) |
-|---:|---:|---:|---:|---:|---:|
-| 100 % | 15,00 | 100 668 | 0,6124 | 3376,3 | 100,0 |
-| 75 % | 11,25 | 75 501 | 0,6135 | 1892,5 | 56,1 |
-| 50 % | 7,50 | 50 334 | 0,6153 | 836,1 | 24,8 |
-| 30 % | 4,50 | 30 200 | 0,6184 | 298,0 | 8,8 |
-| 20 % | 3,00 | 20 134 | 0,6216 | 131,1 | 3,9 |
-
-Note que, com metade da vazão, o `ΔP` não é exatamente 25 % porque o `C` aumenta quando o Reynolds diminui.
-
----
-
-## 6. O transmissor LD301 na medição de vazão
-
-O LD301 mede a diferença entre as pressões das tomadas **H** (alta) e **L** (baixa) e a converte em corrente de 4 a 20 mA. A comunicação **HART** é sobreposta à corrente e permite configurar o transmissor pelo PACTware.
-
-### 6.1 Faixa de calibração
-
-No LD301, os limites **inferior (LRV)** e **superior (URV)** da calibração são sempre de **pressão**. Para a placa padrão:
-
-- LRV = 0 mmH2O (vazão zero, 4 mA);
-- URV = ΔP na vazão máxima = 3376,3 mmH2O (15 m³/h, 20 mA).
-
-A vazão **nunca** entra no LRV/URV. Ela entra pela função de transferência e pela unidade do usuário.
-
-### 6.2 Função raiz quadrada
-
-Com a função **linear**, a saída acompanha o `ΔP`:
-
-$$
-I = 4 + 16\cdot\frac{\Delta P - LRV}{URV - LRV}\quad[\text{mA}]
-$$
-
-Com a função **raiz quadrada (Sqrt)**, o LD301 calcula:
-
-$$
-X = \frac{\Delta P - LRV}{URV - LRV}\cdot 100\,\%
-\qquad
-\text{saída} = 10\sqrt{X}\;[\%]
-\qquad
-I = 4 + 16\cdot\frac{\text{saída}}{100}
-$$
-
-e a corrente fica proporcional à vazão.
-
-O manual do LD301 define um **ponto de corte** (padrão 6 % da faixa de pressão). Abaixo dele:
-
-- no modo **Abrupto (Hard)**, a saída vai a 0 %;
-- no modo **Suave (Bumpless)**, a saída fica linear com o `ΔP`.
-
-O corte evita o ganho muito alto da raiz perto de zero. Com 6 % de `ΔP`, o corte corresponde a `15·\sqrt{0,06} = 3,67` m³/h.
-
-### 6.3 Unidade do Usuário e display
-
-A **Unidade do Usuário (User Unit)** dá unidade e escala ao % da saída: 0 % corresponde a 0 m³/h e 100 % a 15 m³/h. O resultado é a **PV** do LD301, que o display pode mostrar com o ícone **PV**.
-
-O display alterna até duas variáveis a cada 3 s (**First Var** e **Second Var**):
-
-| Opção | Mostra |
-|---|---|
-| OUT | saída em mA |
-| PV% | variável de processo em % |
-| PV | variável de processo na unidade do usuário (a vazão) |
-| PRES | pressão diferencial |
-| TEMP | temperatura do sensor |
-| None | só na 2ª variável: não alterna |
-
-O LD301 do projeto vem com tag **FT100**, faixa 0…3376,3 mmH2O, função **linear** e display em PV% / TEMP. Configurá-lo para vazão é o objetivo da seção 10.
-
-**Figura 8. Malha 4–20 mA do LD301 no simulador**
-
-![Figura 8](assets/fig08_malha_4_20.png)
-
-> **Imagem a inserir:** captura ampliada da região do LD301 no LasecSimul: o transmissor com o display, a fonte de 24 V, o resistor de 250 Ω, o amperímetro mostrando a corrente e o modem HART ligado sobre o resistor. Destaque com setas os fios HIGH (laranja) e LOW (amarelo) vindos da planta.
-
----
-
-## 7. Arquivos da prática
-
-Os arquivos desta pasta são:
-
-- [`placa_orificio_ld301.lsproj`](placa_orificio_ld301.lsproj): projeto do LasecSimul com a planta incorporada e o LD301;
-- [`placa_orificio_calculo.py`](placa_orificio_calculo.py): script para calcular a vazão com os mesmos ajustes da planta (seção 11);
-- [`assets/`](assets): imagens deste roteiro.
-
----
-
-## 8. Como executar
-
-1. Instale ou atualize a extensão **LasecSimul** no VS Code (versão 0.0.83 ou mais nova).
-2. Abra esta pasta no VS Code e dê dois cliques em `placa_orificio_ld301.lsproj`.
-3. Clique em **Run** (▶). O selo no canto superior direito muda para "Running".
-4. Selecione o slider **"Válvula de controle (%)"** e altere o **Valor do sinal** no painel Properties (ou arraste o slider).
-5. Observe a vazão, o `ΔP`, a corrente no amperímetro e o display do LD301.
-6. Para mudar os parâmetros da planta, selecione a planta e use **Propriedades exportadas**.
-
-Observações importantes:
-
-- a vazão responde à válvula com um atraso de cerca de 1 s; espere estabilizar antes de anotar;
-- ao mudar `D`, `d` ou o fluido, o `ΔP` na vazão máxima muda e o **URV do LD301 precisa ser refeito**;
-- as lâmpadas vermelhas indicam instalação fora da norma; com o desvio didático ligado, o `C` real muda.
-
----
-
-## 9. Conexão com o PACTware
-
-O **modem HART** do projeto está ligado sobre o resistor de 250 Ω e se comunica com o computador por uma porta serial virtual.
-
-1. Selecione o **Modem HART** e confira em Properties: **Ligação com o PC** = Serial (COM / CNC) e **Porta serial** = `CNCB0`.
-2. No **com0com**, crie (ou confira) o par de portas `CNCB0` ↔ `COM20`. O LasecSimul usa um lado; o PACTware usa o outro.
-3. No PACTware, abra **Ver → Catálogo de instrumentos**, atualize o catálogo e adicione **HART Communication**.
-4. Dê dois cliques no driver HART e selecione a porta **COM20**. Desmarque **Multimaster and Burst mode support**. Clique em **Apply** e **OK**.
-5. Clique com o botão direito no driver → **Adicionar instrumento** → escolha o DTM do **LD301** (Smar).
-6. Com a simulação rodando, clique com o botão direito no LD301 → **Conectar**. Os ícones ficam verdes e o tag **FT100** aparece.
-7. Abra a **Parametrização online** do LD301.
-
-**Figura 9. Par de portas virtuais no com0com**
-
-![Figura 9](assets/fig09_com0com.png)
-
-> **Imagem a inserir:** janela de configuração do com0com (*Setup for com0com*) mostrando o par com `CNCB0` de um lado e `COM20` do outro, com as opções padrão.
-
-**Figura 10. LD301 conectado no PACTware**
-
-![Figura 10](assets/fig10_pactware_conectado.png)
-
-> **Imagem a inserir:** tela do PACTware com a árvore do projeto mostrando "HOST PC → HART Communication (COM20) → LD301" com os ícones verdes de conexão, e a janela do DTM aberta exibindo o tag FT100 e a variável primária em mmH2O.
-
----
-
-## 10. Configuração do LD301 para vazão
-
-Faça uma alteração por vez, aplique (**Write/Apply**) e confira o efeito no simulador antes da próxima.
-
-### 10.1 Calibração (faixa de ΔP)
-
-Em **Calibration**: unidade **mmH2O**, **Lower = 0**, **Upper = 3376,3** → aplicar.
-
-**Figura 11. Tela de calibração do LD301**
-
-![Figura 11](assets/fig11_dtm_calibration.png)
-
-> **Imagem a inserir:** tela **Calibration** do DTM do LD301 com a unidade mmH2O, Lower Value 0 e Upper Value 3376,3 preenchidos, antes de aplicar.
-
-Com a função ainda **linear**, a corrente acompanha o `ΔP`: válvula a 50 % → **7,96 mA**.
-
-### 10.2 Função raiz quadrada
-
-Em **Configuration → Function**: selecione **Sqrt**, ponto de corte **6 %** e modo **Hard** (abrupto) → aplicar.
-
-**Figura 12. Função de transferência raiz quadrada**
-
-![Figura 12](assets/fig12_dtm_function.png)
-
-> **Imagem a inserir:** tela **Configuration** do DTM com a função de transferência **Sqrt** selecionada, o campo do ponto de corte com 6 % e a opção de modo do corte (Hard/Bumpless) visível.
-
-Agora a corrente acompanha a vazão: válvula a 50 % → **11,96 mA**.
-
-### 10.3 Unidade do Usuário
-
-Em **User Unit**: **On**, unidade **m3/h**, **0 % = 0** e **100 % = 15** → aplicar.
-
-**Figura 13. Unidade do Usuário em m³/h**
-
-![Figura 13](assets/fig13_dtm_user_unit.png)
-
-> **Imagem a inserir:** tela **User Unit** do DTM com a opção habilitada (On), a unidade m3/h selecionada na lista de vazão volumétrica e os valores 0 (0 %) e 15 (100 %).
-
-### 10.4 Display
-
-Em **Display (LCD Indicator)**: **First Var = PV** e **Second Var = OUT** (ou **None** para mostrar só a vazão) → aplicar.
-
-**Figura 14. Configuração do display**
-
-![Figura 14](assets/fig14_dtm_display.png)
-
-> **Imagem a inserir:** tela de configuração do display do DTM com First Var = PV e Second Var = OUT.
-
-**Figura 15. Display do LD301 indicando vazão**
-
-![Figura 15](assets/fig15_lcd_vazao.png)
-
-> **Imagem a inserir:** duas capturas ampliadas do display do LD301 no simulador, com a válvula em 100 %: uma com "15.00 m3/h" e o ícone PV aceso, e outra, 3 s depois, com "20.00 mA". Monte as duas lado a lado.
-
-### 10.5 Conferência
-
-Com a raiz, corte de 6 % (Hard) e Unidade do Usuário de 0 a 15 m³/h:
-
-| Válvula | Vazão real (planta) | ΔP (% da faixa) | Corrente linear | Corrente com raiz | LCD (PV) |
-|---:|---:|---:|---:|---:|---:|
-| 100 % | 15,00 | 100,0 | 20,00 mA | 20,00 mA | 15,00 m3/h |
-| 75 % | 11,25 | 56,1 | 12,97 mA | 15,98 mA | 11,23 m3/h |
-| 50 % | 7,50 | 24,8 | 7,96 mA | 11,96 mA | 7,464 m3/h |
-| 30 % | 4,50 | 8,8 | 5,41 mA | 8,75 mA | 4,457 m3/h |
-| 20 % | 3,00 | 3,9 | 4,62 mA | 4,00 mA | 0,000 m3/h |
-
-A 20 % de válvula o `ΔP` (3,9 %) fica abaixo do corte de 6 %, e a indicação vai a zero. No modo Bumpless, a mesma válvula daria 6,54 mA.
-
-**Figura 16. Corrente em função da vazão: linear e raiz quadrada**
-
-![Figura 16](assets/fig16_grafico_corrente_vazao.png)
-
-> **Imagem a inserir:** gráfico com a vazão (0 a 15 m³/h) no eixo horizontal e a corrente (4 a 20 mA) no vertical, com duas curvas feitas com os valores medidos na tabela acima: a função linear (parábola, abaixo da reta) e a função raiz quadrada (praticamente uma reta). Marque a região abaixo do corte de 6 % (até 3,67 m³/h).
-
----
-
-## 11. Ferramenta de apoio em Python
-
-O script [`placa_orificio_calculo.py`](placa_orificio_calculo.py) usa as **mesmas equações** da planta. Ele serve para o aluno fazer as contas e depois conferir com a simulação. Só usa a biblioteca padrão do Python.
-
-Copie para o bloco `CONFIGURACAO`, no início do arquivo, os valores de **Propriedades exportadas** e informe o que foi medido:
-
-```text
-python placa_orificio_calculo.py --dp 836.1                ΔP lido no LD301/PACTware (mmH2O)
-python placa_orificio_calculo.py --corrente 7.96           corrente do laço, LD301 linear
-python placa_orificio_calculo.py --corrente 11.96 --raiz   corrente do laço, LD301 com raiz
-python placa_orificio_calculo.py --valvula 50              abertura -> vazão -> ΔP
-python placa_orificio_calculo.py                           pergunta o que foi medido
+```python
+C_iso = coeficiente_iso(b, reynolds(cfg, Q_m3h, geo["D_T"]), cfg["tomada"], geo["D_T"])
+C_real = C_iso * (1 + dev["total"] / 100)
+dp0 = 8 * cfg["rho"] * (1 - b ** 4) * (Q_m3h / 3600) ** 2 \
+      / (C_real ** 2 * math.pi ** 2 * d ** 4)
 ```
 
-Os ajustes também podem ir na linha de comando, por exemplo `--tomada 2 --L_montante 10 --T 80`.
+Dois scripts auxiliares preparam a prática:
 
-A partir do `ΔP`, o script resolve a vazão por **iteração**, porque `C` depende de `Re_D`, que depende de `Q`, e mostra cada passo:
+- [`python/gerar_folhas_dados.py`](python/gerar_folhas_dados.py) calcula as três placas com o script principal, imprime um quadro-resumo e grava as três folhas `FOLHA_DADOS_FE_*.md`.
+- [`python/preparar_placa_lasecsimul.py`](python/preparar_placa_lasecsimul.py) cria `placa_orificio_FE_*_calculada.lsproj` a partir do projeto principal. Ele grava as Propriedades exportadas da instância da placa e não altera o LD301.
 
-```text
-Iteração (C depende de Re, que depende de Q):
-   k      C (ISO)      C real     Q [m³/h]        Re_D
-   1     0.600000    0.600000     7.313091       49079
-   2     0.615471    0.615471     7.501660       50345
-   3     0.615341    0.615341     7.500069       50334
-   4     0.615342    0.615342     7.500082       50334
+O diretório [`python/`](python/) contém também scripts exploratórios mais antigos (`orifice_plate_*.py`, `find_beta.py`, `compute_corrections.py`). Eles usam fatores empíricos simplificados e não são usados nesta prática.
+
+<a id="arquitetura"></a>
+## Arquitetura e caminhos de dados
+
+```mermaid
+flowchart LR
+  V[Slider da válvula 0–100%] --> P[Placa de orifício no LasecSimul]
+  P -->|HIGH / LOW · mmH2O| T[LD301 simulado · FT100]
+  T -->|Laço 4–20 mA| R[Resistor 250 Ω / amperímetro]
+  M[Modem HART no esquema] <-->|HART sobre o laço| T
+  M -->|Serial CNCB0| C[Par virtual com0com CNCB0 ↔ COM20]
+  C -->|COM20| D[PACTware + DTM HART + DTM LD301]
+  PY[placa_orificio_calculo.py] -. valores copiados pelo aluno .-> P
+  PY -. URV e escala calculados .-> D
 ```
 
-Com o chute inicial `C = 0,6`, a vazão converge em três ou quatro passos.
+As linhas cheias são caminhos reais do esquema. As tracejadas indicam valores que o aluno transcreve: o Python **não** se comunica com o LasecSimul nem com o PACTware. O resultado do Python fornece `Qmax` para a planta, e `URV` e a escala da User Unit para o transmissor.
 
-No final, ele imprime os mesmos valores dos displays da planta: geometria na temperatura, trechos exigidos, desvio, conformidade, `C`, `ε`, `ΔP` e perda permanente. Com `--autoteste`, o script se confere com os valores de referência da norma.
-
-**Figura 17. Saída do script de cálculo**
-
-![Figura 17](assets/fig17_script_python.png)
-
-> **Imagem a inserir:** captura do terminal do VS Code com a execução de `python placa_orificio_calculo.py --dp 836.1`, mostrando a tabela de iterações e o relatório final com a vazão de 7,50 m³/h.
+| Elemento | Variável | Onde se ajusta | Como se confere |
+|---|---|---|---|
+| Slider da válvula | abertura `u` (%) | Properties → Valor do sinal | válvula desenhada e vazão na planta |
+| Placa simulada | `Q`, `Re`, `C`, `ε`, `ΔP` | Propriedades exportadas | mostradores da planta × saída do Python |
+| LD301 FT100 | PV (pressão), corrente, PV de usuário | PACTware → Online Parameterize | releitura no DTM, LCD e amperímetro |
+| Modem HART | porta `CNCB0` | propriedades do modem; botão Abrir/Fechar | rótulo do botão e estado no PACTware |
+| PACTware | canal `COM20` e dispositivo | árvore do projeto | ícone verde e barra de status **Connected** |
 
 ---
 
-## 12. Sugestão de atividade experimental
+<a id="pre-requisitos"></a>
+## Pré-requisitos e arquivos
 
-### Parte A: linear × raiz quadrada
+### Softwares usados nesta execução
 
-1. Configure o LD301 com a faixa de 0 a 3376,3 mmH2O e função **linear**.
-2. Para as aberturas de válvula de 100, 75, 50, 30 e 20 %, aguarde estabilizar e registre a vazão real (display da planta), o `ΔP` (PACTware) e a corrente (amperímetro).
-3. Mude a função para **raiz quadrada** e repita.
-4. Configure a **Unidade do Usuário** e o **display** e registre a vazão indicada no LD301.
-5. Calcule o erro entre a vazão indicada e a vazão real.
+| Software | Versão observada | Observação |
+|---|---|---|
+| Windows Server 2025 + VS Code | — | VS Code em modo administrador; workspace confiável |
+| Extensão LasecSimul | **0.0.100** (a 0.0.97 está marcada como obsoleta) | O executável em uso é `...\josuemoraisgh.lasecsimul-0.0.100\bundled\core\build\Release\lasecsimul-core.exe`. **Exige a pasta `block-library`**; veja [Oficina 03, Etapa 01](#oficina-03) |
+| Python | 3.12.5 | Só biblioteca padrão |
+| PACTware | 5.0 | DTM HART Communication (CodeWrights 1.0.58) e DTM SMAR LD301 3.03 |
+| com0com | par 0: `COM20 ↔ CNCB0` | Não criar outro par com os mesmos nomes |
 
-| Válvula | Q real (m³/h) | ΔP (mmH2O) | I linear (mA) | I raiz (mA) | Q indicada (m³/h) | Erro (%) |
+### Arquivos
+
+| Caminho | Uso |
+|---|---|
+| [`placa_orificio_ld301.lsproj`](placa_orificio_ld301.lsproj) | Projeto principal (caso-base com água). Contém o modelo migrado para `sl.*`. Não foi sobrescrito nesta revisão |
+| [`placa_orificio_FE_02_AR_calculada.lsproj`](placa_orificio_FE_02_AR_calculada.lsproj) | **Cópia de trabalho da FE-02-AR**, gerada pelo script a partir do projeto principal |
+| [`placa_orificio_FE_09_AR_calculada.lsproj`](placa_orificio_FE_09_AR_calculada.lsproj), [`placa_orificio_FE_01_AR_calculada.lsproj`](placa_orificio_FE_01_AR_calculada.lsproj) | Cópias para os exercícios, geradas do mesmo modo (FE-01 com d = 15,673 mm) |
+| `placa_orificio_FE_02_AR.lsproj`, `placa_orificio_FE_*_compativel.lsproj` | Cópias intermediárias de diagnóstico da sessão anterior. **Não usar.** Mantidas para rastreabilidade |
+| [`diagnostico_lasecsimul/teste_leitura_sl.lsproj`](diagnostico_lasecsimul/teste_leitura_sl.lsproj) | Projeto de teste usado no diagnóstico dos blocos `sl.*` |
+| [`placa_orificio_calculo.py`](placa_orificio_calculo.py) | Cálculo principal, comparação e autoteste |
+| [`python/gerar_folhas_dados.py`](python/gerar_folhas_dados.py), [`python/preparar_placa_lasecsimul.py`](python/preparar_placa_lasecsimul.py) | Geração das folhas e das cópias do LasecSimul |
+| [`FOLHA_DADOS_FE_02_AR.md`](FOLHA_DADOS_FE_02_AR.md), [`FOLHA_DADOS_FE_09_AR.md`](FOLHA_DADOS_FE_09_AR.md), [`FOLHA_DADOS_FE_01_AR.md`](FOLHA_DADOS_FE_01_AR.md) | Folhas de dados das três placas |
+| [`LD301_PACTware_FE02_Pratica.PW5`](LD301_PACTware_FE02_Pratica.PW5) | **Projeto PACTware desta prática**, montado do zero na Oficina 04: `HOST PC → COM20 → LD301`, Multimaster desmarcado |
+| `LD301_PACTware_COM20_SemMultimaster.PW5`, `LD301_PACTware_COM20.PW5`, `LD301_PACTware_Pratica.PW5` | Projetos da sessão anterior; mantidos para rastreabilidade |
+| [`MANUAL_LD301.pdf`](MANUAL_LD301.pdf) | Manual do transmissor |
+| [`assets/`](assets/) | Capturas de tela e logs. O [índice de evidências](#indice-evidencias) lista cada uma |
+| [`lasecsimul-migration-backup/`](lasecsimul-migration-backup/) | Originais preservados pela migração automática |
+
+---
+
+<a id="parte-ii"></a>
+# Parte II — Oficinas
+
+<a id="oficina-01"></a>
+<details open>
+<summary><strong>📘 Oficina 01 — Reconhecer o sistema</strong></summary>
+
+**Competência:** identificar cada componente e distinguir processo, medição, configuração e cálculo.
+
+#### 🔹 Passo 01 — Abrir o projeto principal
+
+1. No VS Code, abra a pasta do repositório (**Arquivo → Abrir Pasta…**) e confie no workspace quando solicitado.
+2. Pressione `Ctrl+P`, digite `placa_orificio_ld301.lsproj` e pressione `Enter`. A aba **LasecSimul - Esquemático** abre.
+3. Clique em **Ajustar à tela** na barra do esquemático e depois em **Rodar** (triângulo verde). O cabeçalho passa de **Parado** para **Rodando**.
+
+![Projeto principal rodando com a válvula em 50 %: vazão 7,50 m³/h, Re 50329, C 0,6153, ΔP 8,20 kPa = 836 mmH2O e 7,961 mA no amperímetro.](assets/lasecsimul_37_caso_base_agua_valvula_50_corrigido.png)
+
+*Captura real [O], já com a instalação corrigida (Oficina 03): o caso-base com água a 50 % mostra 7,50 m³/h, Re_D = 50329, C = 0,6153, ε = 1,0000 e ΔP = 836 mmH₂O. O LD301, na configuração original (linear, URV 3376,3), produz 7,961 mA. O Python prevê 7,50 m³/h, 836,1 mmH₂O e 7,96 mA ([Apêndice C](#apendice-caso-base)).*
+
+#### 🔹 Passo 02 — Identificar variáveis e equipamentos
+
+1. À esquerda está o slider **Válvula de controle (%)**, ligado à entrada `valve` da placa.
+2. No quadro da placa: à esquerda, os mostradores de **Medição** (vazão, velocidade, Re, β, C, C real, ε, desvio, ΔP em kPa e mmH₂O, perda permanente, 10⁴·Ra/D); à direita, os **Parâmetros**; no topo, as lâmpadas de tipo de tomada e de conformidade.
+3. As saídas `high` e `low` da placa vão às entradas HIGH e LOW do LD301 (fios laranja e amarelo).
+4. À direita: LD301 com LCD, amperímetro, fonte de 24 V, resistor de 250 Ω, **Modem HART-1** (botão vertical **Abrir/Fechar**) e osciloscópio.
+
+**Reflexão:** a PV do LD301 é vazão ou pressão diferencial? Onde a vazão passa a existir no transmissor?
+
+---
+</details>
+
+<a id="oficina-02"></a>
+<details open>
+<summary><strong>📘 Oficina 02 — Calcular as placas em Python</strong></summary>
+
+**Competência:** executar o cálculo reproduzível e entender por que ele vem antes da planta e do transmissor.
+
+**Por que primeiro o Python?** O LasecSimul pede a vazão máxima **nas condições de operação** (`Qmax` em m³/h), não a vazão normal. O LD301 pede a **pressão diferencial** de fundo de escala (URV), não a vazão. O cálculo transforma o dado de processo (15 Nm³/h) nesses dois números: `Qmax = 5,413291 m³/h` para a planta e `URV = 1150,3 mmH₂O` para o transmissor.
+
+#### 🔹 Passo 01 — Abrir o script e localizar a configuração
+
+1. No Explorador do VS Code, clique em `placa_orificio_calculo.py`.
+2. Role até o dicionário `CONFIGURACAO` (linhas 34–54). Ele contém os mesmos campos das Propriedades exportadas da planta. Os valores padrão são os do caso-base com água.
+3. Não edite o arquivo: os valores de cada placa entram pela linha de comando.
+
+![Script placa_orificio_calculo.py aberto no VS Code, com o dicionário CONFIGURACAO das linhas 34 a 54.](assets/python_01_script_configuracao.png)
+
+*Captura real: o dicionário `CONFIGURACAO` mostra D, d, tomada, trechos, materiais, T, fluido, ρ, μ, κ, p1, Qmax e desvio, além de LRV, URV e corte da raiz usados para converter corrente em ΔP.*
+
+#### 🔹 Passo 02 — Abrir o terminal, conferir o Python e rodar o autoteste
+
+1. Abra o terminal integrado: `Ctrl+Shift+P` → **Terminal: Criar Novo Terminal**. O prompt deve estar na raiz do repositório.
+2. Digite `python --version` e pressione `Enter`.
+3. Digite `python placa_orificio_calculo.py --autoteste` e pressione `Enter`.
+
+![Terminal com Python 3.12.5 e autoteste com 12 linhas OK e "Autoteste: tudo certo".](assets/python_02_versao_autoteste.png)
+
+*Captura real: Python 3.12.5. Os 12 casos do autoteste conferem o script com valores de referência da ISO 5167-2 (C, ΔP, perda permanente, ε de gás, inversão ΔP → Q e corrente → Q). Se alguma linha mostrar `FALHA`, não prossiga.*
+
+#### 🔹 Passo 03 — Preparar o comando da FE-02-AR a partir da folha
+
+1. Abra [`FOLHA_DADOS_FE_02_AR.md`](FOLHA_DADOS_FE_02_AR.md) e localize **Comando do cálculo independente**.
+2. No terminal, digite `cls` e pressione `Enter`.
+3. Digite o comando da folha (sem pressionar `Enter` ainda) e confira cada argumento: `--D 15.8 --d 6.255` [P]; `--tomada 3 --L_montante 44 --L_jusante 8 --material_tubo 1 --material_placa 2 --T 20 --fluido 1 --mu 0.0181 --kappa 1.4 --p1 200 --desvio 0` [E]; `--rho 3.580863081 --Qmax 5.413291324 --URV 1150.3` [C].
+
+![Folha FE-02-AR aberta no editor, mostrando o comando, e o mesmo comando digitado no terminal antes da execução.](assets/python_03_fe02_comando_preparado.png)
+
+*Captura real: em cima, a folha com o comando de referência; embaixo, o comando digitado no terminal, ainda não executado. Use ponto decimal nos argumentos.*
+
+#### 🔹 Passo 04 — Executar a FE-02-AR a 100 % e interpretar
+
+1. Pressione `Enter`. Maximize o painel do terminal (ícone de maximizar) e role até o início da saída.
+
+![Saída completa do cálculo da FE-02-AR a 100 %: geometria, instalação, vazão 5,413 m³/h, Re 23973, C 0,6148, ε 0,9904 e ΔP 11,2802 kPa = 1150,3 mmH2O.](assets/python_04_fe02_saida_valvula_100.png)
+
+*Captura real da execução. Leitura da saída:*
+
+| Bloco da saída | Valor | Significado |
+|---|---|---|
+| Vazão imposta | `Q = 5,4133 m³/h` | `Qmax·u/100`, nas condições de operação; equivale a 15 Nm³/h |
+| Geometria | `D = 15,80 mm`, `d = 6,255 mm`, `β = 0,3959` | sem correção térmica a 20 °C |
+| Instalação | montante 44D ≥ 16D; jusante 8D ≥ 6D; rugosidade e faixa ISO **FORA** | `D < 50 mm` e `d < 12,5 mm`: fora da ISO 5167-2 |
+| Reynolds | `23973` | regime turbulento; dentro do mínimo de 5000 das tomadas de canto |
+| C | `0,6148` | Reader–Harris/Gallagher com termo de tubo pequeno |
+| ε | `0,9904` | ar compressível, `p₂/p₁ = 0,9626` |
+| ΔP | `11,2802 kPa = 1150,3 mmH₂O (= 1152,3 mmH₂O@20 °C)` | **é o URV do LD301** |
+| Perda permanente | `9,28 kPa` | não é o URV |
+| HIGH / LOW | `20394 / 19244 mmH₂O` | sinais enviados ao LD301 pela planta |
+
+#### 🔹 Passo 05 — Executar a FE-02-AR a 50 %
+
+1. Digite `cls`. Pressione a seta para cima para recuperar o comando, troque `--valvula 100` por `--valvula 50` e pressione `Enter`.
+
+![Saída da FE-02-AR a 50 %: 2,707 m³/h, Re 11986, C 0,6180, ε 0,9977 e ΔP 2,7505 kPa = 280,5 mmH2O.](assets/python_05_fe02_saida_valvula_50.png)
+
+*Captura real: metade da vazão produz 280,5 mmH₂O, isto é, 24,38 % do URV, e não exatamente 25 %, porque `C` subiu de 0,6148 para 0,6180 e `ε` de 0,9904 para 0,9977. Com raiz quadrada, a saída esperada é 10·√24,38 = 49,38 %, ou seja, 11,901 mA e 7,407 Nm³/h.*
+
+#### 🔹 Passo 06 — Executar a FE-09-AR e a FE-01-AR
+
+1. Copie o comando de cada folha ([FE-09-AR](FOLHA_DADOS_FE_09_AR.md), [FE-01-AR](FOLHA_DADOS_FE_01_AR.md)), digite `cls` e execute.
+
+![Saída da FE-09-AR a 100 %: 0,541 m³/h, Re 2397, C 0,6196, ε 0,9867 e ΔP 15,8621 kPa = 1617,5 mmH2O.](assets/python_06_fe09_saida.png)
+
+*FE-09-AR [O no terminal]: β = 0,1154. O Re_D = 2397 fica abaixo do mínimo de 5000, e a lâmpada de faixa ISO fica FORA. O ΔP = 15,8621 kPa = 1617,5 mmH₂O é o URV da folha.*
+
+![Saída da FE-01-AR a 100 %: 10,827 m³/h, Re 36194, C 0,6152, ε 0,9990 e ΔP 0,7897 kPa = 80,5 mmH2O.](assets/python_07_fe01_saida.png)
+
+*FE-01-AR [O no terminal], com o furo corrigido d = 15,673 mm: β = 0,7488. O ΔP máximo é só 0,7897 kPa = 80,5 mmH₂O, cerca de 1,6 % do limite de 50 kPa do sensor do LD301 simulado. Escolher a faixa do sensor é parte do exercício.*
+
+#### 🔹 Passo 07 — Gerar as folhas e as cópias do LasecSimul
+
+1. Digite `cls` e execute `python python/gerar_folhas_dados.py`. O script imprime o quadro das três placas e regrava as três folhas.
+2. Para cada placa, gere a cópia do projeto com `python python/preparar_placa_lasecsimul.py FE-02-AR`. Se o arquivo já existir, acrescente `--substituir-gerado`. A captura mostra o comando da FE-01-AR.
+
+![Terminal com o quadro das três placas (D, d, β, Qn, Q1, Re, C, ε, ΔP em kPa e mmH2O, URV) e a geração da cópia placa_orificio_FE_01_AR_calculada.lsproj.](assets/python_08_tres_placas_resumo.png)
+
+*Captura real do quadro-resumo [C], com unidades no cabeçalho:*
+
+| Placa | D (mm) | d (mm) | β | Qₙ (Nm³/h) | Q₁ (m³/h) | Re_D | C | ε | ΔP (kPa) | ΔP (mmH₂O) | URV |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| FE-02-AR | 15,80 | 6,255 | 0,3959 | 15,000 | 5,4133 | 23973 | 0,61480 | 0,99038 | 11,2802 | 1150,26 | 1150,3 |
+| FE-09-AR | 15,80 | 1,824 | 0,1154 | 1,500 | 0,5413 | 2397 | 0,61958 | 0,98670 | 15,8621 | 1617,49 | 1617,5 |
+| FE-01-AR | 20,93 | 15,673 | 0,7488 | 30,000 | 10,8266 | 36194 | 0,61517 | 0,99902 | 0,7897 | 80,53 | 80,5 |
+
+**Logs de texto complementares:** [autoteste](assets/python_autoteste.log), [caso-base a 50 %](assets/python_valvula_50.log) e [FE-02-AR a 100, 75, 50, 26 e 25 %](assets/python_fe02_pontos.log).
+
+**Reflexão:** por que a FE-09-AR, com 1/10 da vazão da FE-02-AR, tem ΔP maior? Por que a FE-01-AR, com o dobro da vazão, tem ΔP 14 vezes menor?
+
+---
+</details>
+
+<a id="oficina-03"></a>
+<details open>
+<summary><strong>📘 Oficina 03 — Preparar e validar a planta no LasecSimul</strong></summary>
+
+**Competência:** configurar a placa na simulação e comprovar que a planta responde antes de parametrizar o transmissor.
+
+<a id="oficina-03-etapa-01"></a>
+### Etapa 01 — Verificar se a instalação do LasecSimul mostra a planta
+
+Esta etapa registra o problema encontrado ("planta zerada"), o teste que isolou a causa e a correção aplicada. Em outra máquina do laboratório, faça só a verificação do Passo 04. Se os blocos aparecerem como "?", aplique a correção.
+
+#### 🔹 Passo 01 — Sintoma observado antes da correção
+
+![Sessão anterior: slider com Valor do sinal 50, mas a válvula desenhada em 0 % e a vazão em 0,00 m³/h.](assets/lasecsimul_05_slider_50_saida_zero.png)
+
+*Captura da sessão anterior [O], projeto principal: o slider está em 50, mas a válvula desenhada indica 0 % e todos os mostradores indicam zero.*
+
+![Cópia FE-02-AR rodando a 50 % antes da correção: todos os mostradores da planta em zero, enquanto o amperímetro do LD301 indica 5,329 mA.](assets/lasecsimul_10_fe02_antes_mostradores_zerados_ld301_responde.png)
+
+*Captura desta sessão [O], antes da correção: a cópia FE-02-AR roda a 50 % e todos os mostradores da planta indicam 0. **O LD301, porém, responde:** com a configuração original (linear, URV 3376,3), 5,329 mA corresponde a ΔP = (5,329 − 4)/16 × 3376,3 = 280,4 mmH₂O, exatamente o ΔP calculado para 50 % (280,5). Conclusão: o motor de simulação calculava a placa; só os mostradores, ligados aos blocos `sl.*`, não recebiam valores.*
+
+![Modelo interno da placa aberto pelo menu de contexto: dezenas de blocos aparecem como caixas tracejadas com "?".](assets/lasecsimul_09_modelo_migrado_blocos_ausentes.png)
+
+*Captura da sessão anterior [O]: botão direito na placa → **Abrir Modelo Interno**. As constantes `control.constant` são desenhadas normalmente, mas os blocos `sl.fcn`, `sl.mux`, `sl.gain` e `sl.discrete_transfer_fcn` aparecem como "?" (tipo desconhecido para a interface).*
+
+#### 🔹 Passo 02 — Teste discriminante
+
+Para separar "migração errada" de "instalação incompleta", criou-se o projeto [`diagnostico_lasecsimul/teste_leitura_sl.lsproj`](diagnostico_lasecsimul/teste_leitura_sl.lsproj). Ele contém dois blocos `sl.gain` novos **fora** da placa, ligados às saídas `flow` e `dp`, cada um com um mostrador.
+
+![Projeto de teste aberto: os dois blocos sl.gain adicionados no nível principal também aparecem como "?".](assets/lasecsimul_11_teste_sl_gain_sem_biblioteca.png)
+
+*Captura real [O]: projeto de teste aberto, simulação parada. Os dois `sl.gain` recém-criados, que não passaram por migração, também aparecem como "?". O problema atinge qualquer bloco `sl.*`, portanto não é da migração da placa.*
+
+#### 🔹 Passo 03 — Causa identificada
+
+- Em `out/catalog/blockLibraryLoader.js`, a extensão registra os blocos `sl.*` lendo `bundled/project/schema/block-library/*.json`.
+- No pacote 0.0.100 instalado, essa pasta **não existe**. Só existe `bundled/project/schema/component-catalog.json`.
+- O motor (`lasecsimul-core.exe`) embute a mesma especificação e executa os blocos. As 2134 linhas significativas dos 13 arquivos do repositório-fonte do LasecSimul (versão 0.0.100) foram encontradas, sem exceção, dentro do executável.
+- Sem as entradas de catálogo, a interface desenha "?" e a extensão não lê os valores desses blocos. Os mostradores ligados a eles ficam no valor estático 0, embora o motor calcule.
+
+#### 🔹 Passo 04 — Correção aplicada e verificação
+
+1. Feche as simulações abertas.
+2. Copie os 13 arquivos da biblioteca de blocos do repositório-fonte do LasecSimul para a pasta da extensão instalada (PowerShell, nesta máquina):
+
+   ```powershell
+   $dst = "$env:USERPROFILE\.vscode\extensions\josuemoraisgh.lasecsimul-0.0.100\bundled\project\schema\block-library"
+   New-Item -ItemType Directory -Force $dst
+   Copy-Item "C:\SourceCode\LasecSimul\project\schema\block-library\*.json" $dst
+   ```
+
+   Os arquivos são `attributes`, `continuous`, `discontinuities`, `discrete`, `logic`, `lookup`, `math`, `pid-continuous`, `pid-discrete`, `routing`, `sinks`, `sources` e `userdefined` (`.json`). Para desfazer, apague a pasta `block-library` criada.
+3. No VS Code: `Ctrl+Shift+P` → **Desenvolvedor: Recarregar a Janela**.
+4. Abra a cópia FE-02-AR, rode, clique com o botão direito na placa → **Abrir Modelo Interno** e confira se os blocos têm nome e ligações.
+
+![Modelo interno da placa depois da correção: blocos Fcn, Mux e Gain desenhados com nome e ligações, sem "?".](assets/lasecsimul_15_modelo_interno_blocos_reconhecidos.png)
+
+*Captura real [O] depois da correção: os mesmos blocos agora aparecem como **Fcn**, **Mux**, **Gain** e **Discrete Transfer Fcn**. Volte ao esquema principal pela seta de navegação no topo.*
+
+> **Atenção para o professor e o técnico do laboratório.** A correção vale para esta máquina. Nas demais, repita o Passo 04 ou instale uma versão da extensão que traga `bundled/project/schema/block-library`. Convém reportar a ausência ao mantenedor do LasecSimul.
+
+<a id="oficina-03-etapa-02"></a>
+### Etapa 02 — Configurar a placa FE-02-AR
+
+#### 🔹 Passo 01 — Gerar e abrir a cópia de trabalho
+
+1. No terminal: `python python/preparar_placa_lasecsimul.py FE-02-AR --substituir-gerado`. A saída é `placa_orificio_FE_02_AR_calculada.lsproj`. O projeto principal permanece intacto.
+2. `Ctrl+P` → `placa_orificio_FE_02_AR_calculada.lsproj` → `Enter`. Se aparecer "O esquemático atual tem alterações não salvas", escolha **Descartar** para não gravar o projeto anterior.
+
+#### 🔹 Passo 02 — Conferir as Propriedades exportadas
+
+1. Clique uma vez no quadro da placa e expanda **Properties** à direita.
+2. Compare com a folha. A primeira captura mostra os valores **antes** (projeto principal, água). As duas seguintes mostram a cópia FE-02-AR.
+
+![Propriedades exportadas do projeto principal antes da troca: D 52,5, d 31,5, tomada flange, líquido, ρ 998,2, μ 1,002.](assets/lasecsimul_06_propriedades_antes_fe02.png)
+
+*Antes [O]: D = 52,5 mm, d = 31,5 mm, tomada flange, Líquido, ρ = 998,2 kg/m³, μ = 1,002 cP.*
+
+![Propriedades da cópia FE-02-AR: D 15,8, d 6,255, tomada canto, 44D, 8D, aço carbono, AISI 316, 20 °C, gás, ρ 3,5808630809, μ 0,0181.](assets/lasecsimul_07_fe02_geometria_fluido.png)
+
+![Restante das propriedades da FE-02-AR: κ 1,4, p1 200 kPa, Qmax 5,413291324 m³/h e desvio didático "Não aplicar".](assets/lasecsimul_08_fe02_servico_vazao.png)
+
+*Depois [O]: D = 15,8; d = 6,255; Canto; 44 D; 8 D; aço carbono; AISI 316; 20 °C; Gás; ρ = 3,5808630809…; μ = 0,0181; κ = 1,4; p₁ = 200; Qmax = 5,413291324; desvio "Não aplicar". São os valores da folha. Estas duas capturas são da sessão anterior, **antes** da correção da Etapa 01; por isso os mostradores aparecem em zero. A resposta correta está na Etapa 03.*
+
+<a id="oficina-03-etapa-03"></a>
+### Etapa 03 — Rodar a planta e validar a resposta
+
+**Como mudar a abertura.** Clique no slider (à esquerda), expanda **Properties** e clique duas vezes no campo **Valor do sinal**. Apague o conteúdo com `Backspace`, digite o novo valor e pressione `Enter`. O campo limita o valor a 0–100: se você digitar sem apagar, "50" + "100" vira 100. Aguarde pelo menos 5 s, pois o atraso é de 1 s. **Não** pressione `Delete` ou `Backspace` com o slider selecionado no desenho: isso apaga o componente e reconstrói a simulação (veja a [observação na Oficina 05](#o05-reconstrucao)).
+
+![FE-02-AR rodando a 0 %: vazão e ΔP em zero, com os parâmetros da FE-02-AR à direita.](assets/lasecsimul_14_fe02_valvula_0.png)
+
+*0 % [O]: vazão 0,00 m³/h e ΔP 0. Os parâmetros (15,80 mm; 6,255 mm; 3,6 kg/m³; 0,018 cP) já aparecem nos mostradores, sinal de que a leitura dos blocos `sl.*` funciona.*
+
+![FE-02-AR rodando a 50 % depois da correção: vazão 2,71 m³/h, Re 11986, C 0,6180, ε 0,9977, ΔP 2,75 kPa = 280 mmH2O.](assets/lasecsimul_12_fe02_corrigido_valvula_50.png)
+
+![Detalhe ampliado (zoom 1:1) da FE-02-AR a 50 %.](assets/lasecsimul_16_fe02_valvula_50_detalhe.png)
+
+*50 % [O]: 2,71 m³/h; 3,83 m/s; Re 11986; β 0,3959; C = C real = 0,6180; ε 0,9977; desvio 0,00 %; ΔP 2,75 kPa = 280 mmH₂O; perda permanente 2,26 kPa.*
+
+![FE-02-AR rodando a 100 %: vazão 5,41 m³/h, Re 23973, C 0,6148, ε 0,9904, ΔP 11,28 kPa = 1150 mmH2O.](assets/lasecsimul_13_fe02_valvula_100.png)
+
+*100 % [O]: 5,41 m³/h; 7,67 m/s; Re 23973; C 0,6148; ε 0,9904; ΔP 11,28 kPa = 1150 mmH₂O; perda permanente 9,28 kPa. As lâmpadas **Rugosidade** e **Faixa ISO** ficam vermelhas, como previsto pelo Python.*
+
+| Abertura | Q Python [C] | Q planta [O] | Re Python / planta | C Python / planta | ε Python / planta | ΔP Python [C] | ΔP planta [O] |
+|---:|---:|---:|---:|---:|---:|---:|---:|
+| 0 % | 0 | 0,00 m³/h | — | — | — | 0 | 0 mmH₂O |
+| 50 % | 2,707 m³/h | 2,71 m³/h | 11986 / 11986 | 0,6180 / 0,6180 | 0,9977 / 0,9977 | 2,7505 kPa = 280,5 mmH₂O | 2,75 kPa = 280 mmH₂O |
+| 100 % | 5,413 m³/h | 5,41 m³/h | 23973 / 23973 | 0,6148 / 0,6148 | 0,9904 / 0,9904 | 11,2802 kPa = 1150,3 mmH₂O | 11,28 kPa = 1150 mmH₂O |
+
+**Resultado:** a planta FE-02-AR está **validada**. A mudança de abertura produz vazão e ΔP coerentes com o Python em 0, 50 e 100 %; os pontos de 25, 26 e 75 % aparecem na Oficina 05.
+
+---
+</details>
+
+<a id="oficina-04"></a>
+<details open>
+<summary><strong>📘 Oficina 04 — Montar o caminho HART no PACTware e conectar o LD301</strong></summary>
+
+**Competência:** montar a árvore de comunicação a partir de um projeto vazio, escolher a porta virtual e conectar, nesta ordem, o modem do LasecSimul, o canal HART (modem no PACTware) e o dispositivo.
+
+> Todas as capturas desta oficina vêm de **uma única execução contínua**, em 22/10/2026 entre 12:45 e 13:02. O projeto resultante é [`LD301_PACTware_FE02_Pratica.PW5`](LD301_PACTware_FE02_Pratica.PW5). A única exceção é a tela do com0com, do Passo 01, registrada na sessão anterior com o mesmo par de portas.
+
+#### 🔹 Passo 01 — Conferir o par virtual
+
+1. Abra **Setup for com0com** e confira o par `COM20 ↔ CNCB0`. O PACTware usa `COM20`; o modem do LasecSimul usa `CNCB0`. Não crie outro par com esses nomes.
+
+![Janela Setup for com0com com o par virtual 0: COM20 e CNCB0.](assets/com0com_01_par_virtual_com20_cncb0.png)
+
+#### 🔹 Passo 02 — Abrir o PACTware
+
+1. Abra o **PACTware 5.0** pelo menu Iniciar. O projeto novo (`<NONAME>`) mostra apenas `HOST PC` na árvore **Project**.
+
+![PACTware recém-aberto: projeto sem nome e árvore só com HOST PC.](assets/pw_n01_pactware_aberto_host_pc.png)
+
+#### 🔹 Passo 03 — Add device: HART Communication em HOST PC
+
+1. Clique com o botão direito em `HOST PC` e escolha **Add device**.
+
+![Menu de contexto de HOST PC com Add device.](assets/pw_n02_hostpc_menu_add_device.png)
+
+2. A janela **Device for** lista 3 DTMs para este nível (DF100, DF116-DF117 e HART Communication). Selecione **HART Communication** (CodeWrights, 1.0.58) e clique em **OK**.
+
+![Lista Device for com HART Communication selecionado.](assets/pw_n03_hart_communication_selecionado.png)
+
+3. Surge o filho `COM0`: o DTM do modem HART, ainda na porta padrão.
+
+![Árvore HOST PC → COM0.](assets/pw_n04_com0_adicionado.png)
+
+#### 🔹 Passo 04 — Dois cliques em COM0 e escolha da porta COM20
+
+1. Dê **dois cliques em `COM0`**. Abre a aba **COM0 Parameter**: Communication interface `HART modem`, Serial Interface `COM0`, Primary Master, preâmbulo 5, 3 tentativas, endereços 0 a 0, timeout 2 s. Nesta instalação, **Multimaster and Burst mode support** vem **marcado**.
+
+![COM0 Parameter aberto por duplo clique, com COM0 e Multimaster marcado.](assets/pw_n05_com0_parameter_duplo_clique.png)
+
+2. Abra a lista **Serial Interface** e escolha `COM20 (com0com - bus for serial port pair emulator)`.
+
+![Lista Serial Interface com as portas disponíveis, incluindo COM20.](assets/pw_n06_lista_portas_com20.png)
+
+![Serial Interface definida como COM20; botão Apply habilitado.](assets/pw_n07_com20_selecionada.png)
+
+3. Clique em **Apply**. O nome na árvore muda de `COM0` para `COM20`.
+
+![Após Apply, a árvore mostra COM20; Multimaster continua marcado.](assets/pw_n08_com20_aplicada_multimaster_marcado.png)
+
+#### 🔹 Passo 05 — Desmarcar "Multimaster and Burst mode support" (etapa própria)
+
+1. Ainda na aba de parâmetros, clique uma vez na caixa **Multimaster and Burst mode support** e confira que ela ficou vazia.
+
+![Multimaster and Burst mode support desmarcado, Apply habilitado.](assets/pw_n09_multimaster_desmarcado.png)
+
+2. Clique em **Apply** (o botão fica cinza) e depois em **OK**.
+
+![Alteração aplicada: caixa vazia e Apply desabilitado.](assets/pw_n10_multimaster_aplicado.png)
+
+3. **Confira:** dê dois cliques em `COM20` de novo. A aba agora se chama **COM20 Parameter**, com COM20 e a caixa desmarcada. Feche com **OK**.
+
+![COM20 Parameter reaberto: COM20 e Multimaster desmarcado confirmados.](assets/pw_n11_com20_reaberto_confirmado.png)
+
+#### 🔹 Passo 06 — Add device: LD301 sob o canal COM20
+
+1. Clique com o botão direito em `COM20` e escolha **Add device**.
+
+![Menu de contexto de COM20 com Add device.](assets/pw_n12_com20_menu_add_device.png)
+
+2. Agora a lista mostra **32 DTMs HART**. Digite `LD301` na busca e clique em **Find**.
+
+![Catálogo com 32 DTMs HART da Smar.](assets/pw_n13_catalogo_hart_32_dtms.png)
+
+![Busca filtrada: LD301, Smar, HART, DTM 3.03, selecionado.](assets/pw_n14_ld301_filtrado_selecionado.png)
+
+3. Selecione a linha **LD301** e clique em **OK**. A árvore fica `HOST PC → COM20 → LD301`, no canal `HARTCH`.
+
+![Árvore HOST PC → COM20 → LD301 (HARTCH).](assets/pw_n15_arvore_com20_ld301.png)
+
+#### 🔹 Passo 07 — Salvar o projeto
+
+1. **File → Save as**. Em **File name**, digite o caminho completo do repositório, por exemplo `...\II2P05_LD301_Vazao_PlacaOrificio\LD301_PACTware_FE02_Pratica.PW5`, e clique em **Save**.
+
+![Janela Save As com o nome do arquivo digitado.](assets/pw_n16_save_as_caminho.png)
+
+![Barra de título com LD301_PACTware_FE02_Pratica.PW5.](assets/pw_n17_projeto_salvo.png)
+
+#### 🔹 Passo 08 — Iniciar a simulação e abrir o modem no LasecSimul
+
+1. No VS Code, abra `placa_orificio_FE_02_AR_calculada.lsproj`, clique em **Ajustar à tela** e em **Rodar**. O cabeçalho mostra **Rodando**; com a válvula em 50 %, a planta indica 2,71 m³/h e 280 mmH₂O. O LD301 ainda está com a configuração do arquivo (linear, URV 3376,3), por isso o amperímetro marca 5,328 mA.
+2. Localize o **Modem HART-1**, no canto inferior direito. O botão vertical indica **Abrir**: a porta `CNCB0` ainda está fechada.
+
+![LasecSimul rodando a FE-02-AR a 50 %, com o modem HART-1 em Abrir.](assets/ls_n01_fe02_rodando_modem_abrir.png)
+
+3. Clique em **Abrir**. O botão passa a **Fechar** e a porta `CNCB0` fica aberta.
+
+![Modem HART-1 com o botão Fechar: porta aberta.](assets/ls_n02_fe02_modem_aberto_fechar.png)
+
+#### 🔹 Passo 09 — Connect no modem (canal COM20)
+
+**Importante:** antes do dispositivo, é preciso conectar o **modem** no PACTware, isto é, o canal **HART Communication / COM20**.
+
+1. Clique com o botão direito em **COM20** e escolha **Connect**.
+
+![Menu de contexto do modem COM20 com Connect.](assets/pw_n34_menu_connect_modem_com20.png)
+
+2. Confira o ícone de conexão do canal: ele precisa ficar **verde** e o nome **COM20** em negrito. O LD301 continua desconectado: conectar o canal não conecta o dispositivo.
+
+![Modem COM20 conectado: ícone verde; LD301 ainda desconectado.](assets/pw_n35_modem_com20_conectado_verde.png)
+
+#### 🔹 Passo 10 — Connect no dispositivo LD301
+
+1. Clique com o botão direito em **LD301** e escolha **Connect**.
+
+![Menu de contexto do LD301 com Connect.](assets/pw_n36_menu_connect_ld301.png)
+
+2. Aguarde a aba **LD301 # Parameter** (o `#` indica a instância online do DTM). Ela mostra tag **FT100**, descritor **MEDIDOR VAZAO**, Universal Code 5, Bell 202 e o código de pedido. Na barra inferior deve aparecer **Connected**, com os dois ícones da árvore em verde.
+
+![LD301 conectado: aba LD301 # Parameter, FT100 e barra Connected.](assets/pw_n37_ld301_connected_ft100.png)
+
+> **Observação do professor e o que aconteceu nesta execução (ordem errada).** Na primeira tentativa, o **Connect** no COM20 foi feito com o modem do LasecSimul ainda em **Abrir** (porta fechada). O PACTware ficou parado em 67 % em "PACTware action active".
+>
+> ![Connect no COM20 com o modem fechado: ação parada em 67 %.](assets/pw_n19_connect_com20_modem_fechado_preso_67.png)
+>
+> Mesmo depois de abrir o modem, o canal não ficou verde (zoom: plugue aberto à esquerda; o mesmo plugue fechado, mas sem verde, à direita):
+>
+> <table><tr><td><img src="assets/pw_n20z_com20_desconectado_zoom.png" alt="COM20 desconectado" width="380"></td><td><img src="assets/pw_n22z_com20_conectado_zoom.png" alt="COM20 com plugue fechado, sem verde" width="380"></td></tr></table>
+>
+> O Connect no LD301 deixou o nome em negrito, mas o DTM abriu com **Disconnected**. Desconectar e conectar de novo **só o LD301** não resolveu nesta execução, e a página online respondeu "Device is Disconnected!":
+>
+> ![DTM aberto com a barra Disconnected.](assets/pw_n25_dtm_aberto_status_disconnected.png)
+>
+> ![Aviso Device is Disconnected! ao abrir Online Parameterize.](assets/pw_n30_dtm_aberto_antes_reconexao_disconnected.png)
+>
+> **O que resolveu:** desconectar também o modem (COM20). O PACTware avisou "It was not possible to close the connection… Force closing of connection?"; responda **Yes**. Com os dois desconectados e o modem do LasecSimul em **Fechar** (aberto), refaça **Connect no modem COM20** (Passo 09, ícone verde) e depois **Connect no LD301** (Passo 10).
+>
+> ![Canal travado: Disconnect failed, forçar o fechamento com Yes.](assets/pw_n32_canal_preso_forcar_fechamento.png)
+>
+> ![COM20 e LD301 desconectados após o fechamento forçado.](assets/pw_n33_canal_e_ld301_desconectados_limpo.png)
+>
+> Resumo: **(1)** LasecSimul **Rodando**; **(2)** **Abrir** no modem do LasecSimul; **(3)** **Connect no modem COM20** (verde); **(4)** **Connect no LD301**; **(5)** DTM com `#` e **Connected**. Se algum Connect foi feito antes de abrir o modem, desconecte o LD301 e o COM20 (forçando se necessário) e repita a partir do item 3. Na sessão anterior, em que o canal havia conectado normalmente, bastou desconectar e conectar novamente o LD301.
+
+---
+</details>
+
+<a id="oficina-05"></a>
+<details open>
+<summary><strong>📘 Oficina 05 — Parametrizar o LD301 como transmissor de vazão (FE-02-AR)</strong></summary>
+
+**Competência:** gravar e reler faixa, função raiz, User Unit e display, e verificar a indicação de vazão.
+
+**Condição inicial:** planta FE-02-AR validada (Oficina 03) e rodando com a válvula em 50 %; modem aberto; COM20 e LD301 conectados (Oficina 04). Os Passos 01 a 07 continuam a mesma execução contínua do projeto `LD301_PACTware_FE02_Pratica.PW5` (12:57–13:02).
+
+<a id="o05-p03"></a>
+#### 🔹 Passo 01 — Ler e registrar a configuração existente
+
+1. Na aba **LD301 # Parameter**, expanda **Online Parameterize → Blocks** e clique em **Summary**. Não use o ramo **Offline Parameterize**.
+
+![Summary online antes: display PV(%)/Temp, mmH2O@20°C, 0,00 a 3376,30, Function Linear, Damping 0,00.](assets/pw_n38_summary_online_antes.png)
+
+2. Expanda **Configuration** e clique em **Measurement**.
+
+![Measurement online antes: URL ±5107,7451, span mínimo 25,5387, URV 3376,3, LRV 0, mmH2O@20°C.](assets/pw_n39_measurement_antes.png)
+
+*Leitura online [O]: URV = 3376,3 mmH₂O@20 °C (caso-base com água), função **Linear**, display PV(%)/Temp. As páginas de Configuration são Measurement, User Unit, Display, Table, PID Control, PID Loop e Totalization.*
+
+**Online × offline.** As páginas de **Offline Parameterize** mostram o conjunto de dados do projeto, não o transmissor: na sessão anterior, Measurement offline exibia `psi` e faixa 0–30 ([captura](assets/pactware_28_ld301_medicao_offline.png)), valores que não são do FT100. Só o ramo **Online** lê e grava no dispositivo.
+
+<a id="o05-p04"></a>
+#### 🔹 Passo 02 — Gravar a faixa de pressão (URV)
+
+1. Em **Measurement**, clique no campo **(URV) - Upper Range Value**, selecione o conteúdo e digite `1150,3`. O Windows em português usa vírgula decimal. Mantenha LRV = 0 e a unidade `mmH2O@20°C`.
+
+![URV digitado como 1150,3, antes de gravar.](assets/pw_n40_measurement_urv_digitado.png)
+
+2. Clique em **Write**.
+
+![Measurement após Write.](assets/pw_n41_measurement_apos_write.png)
+
+3. **Releia:** clique em **Summary** e volte a **Measurement**.
+
+![Measurement relido: URV 1150,3000.](assets/pw_n42_measurement_releitura_urv.png)
+
+4. Efeito na planta a 50 %, ainda com função linear (captura da primeira execução, mesma configuração):
+
+![Detalhe da planta a 50 % depois do novo URV: ΔP 280 mmH2O, LCD 24,38 (PV %) e 7,901 mA.](assets/lasecsimul_20_fe02_apos_urv_linear_50_detalhe.png)
+
+*[O]: ΔP = 280 mmH₂O, LCD 24,38 % e 7,901 mA. Previsto [C]: 280,5/1150,3 = 24,38 % → 4 + 16 × 0,2438 = 7,901 mA. Com a função linear, a corrente é proporcional ao ΔP e não à vazão.*
+
+<a id="o05-p05"></a>
+#### 🔹 Passo 03 — Gravar a função raiz quadrada
+
+1. Em **Summary**, abra a lista **Function**. As opções coincidem com a Tabela 4.5 do manual: Linear, Sqrt, Sqrt + Table, Sqrt\*\*3, Sqrt\*\*5, Table, Table + Sqrt.
+
+![Lista Function aberta no Summary.](assets/pw_n43_summary_lista_funcoes.png)
+
+2. Selecione **Sqrt** e clique em **Write**.
+
+![Function = Sqrt selecionada, antes de gravar.](assets/pw_n44_summary_sqrt_selecionada.png)
+
+3. **Releia** (Measurement → Summary).
+
+![Summary relido: Function Sqrt e URV 1150,30.](assets/pw_n45_summary_releitura_sqrt.png)
+
+4. Efeito na planta a 50 % (primeira execução):
+
+![Detalhe da planta a 50 % depois de Sqrt: 11,90 mA.](assets/lasecsimul_22_fe02_apos_sqrt_50_detalhe.png)
+
+*[O]: 11,90 mA. Previsto [C]: 10·√24,38 = 49,38 % → 11,901 mA. Agora a corrente é aproximadamente proporcional à vazão.*
+
+<a id="o05-p06"></a>
+#### 🔹 Passo 04 — Conferir o ponto de corte
+
+O manual (p. 3.10) define o ponto de corte em % da faixa de pressão (padrão de 6 %) e o modo Suave ou Abrupto. **Nas páginas online do DTM 3.03 percorridas, esses dois parâmetros não aparecem.** Foram percorridas Summary, Identification (Device, Sensor, Flange/Seal), Configuration (Measurement, User Unit, Display, Table), Calibration, Maintenance e Factory. A página Table, por exemplo, só tem os pontos X/Y:
+
+![Página Table online: 6 pontos X/Y, sem campos de corte.](assets/pactware_68_fe02_table_sem_corte.png)
+
+O transmissor simulado guarda `sqrtCutoff.point = 6` e `sqrtCutoff.mode = Hard` no arquivo do projeto. Como esses campos não puderam ser editados pelo DTM, o corte foi **verificado pelo comportamento** (Passo 07, 25 % e 26 %): 6 % de 1150,3 = 69,0 mmH₂O. Abaixo desse valor, a corrente deve ser 4,000 mA e a PV 0.
+
+<a id="o05-p07"></a>
+#### 🔹 Passo 05 — Gravar a User Unit em N m³/h
+
+1. Clique em **Configuration → User Unit**. Estado encontrado: **Mode On**, escala 243–800, família **Length**, unidade **mm** (herança do exemplo de nível do manual) e PV = 518,0402 mm, sem significado de vazão.
+
+![User Unit antes: Mode On, 243 a 800, Length, mm.](assets/pw_n46_user_unit_antes.png)
+
+2. Em **Unit Family**, escolha **Volumetric Flow**. Em **Unit Description**, escolha **N m3/h** (penúltima opção).
+
+![Lista Unit Description com N m3/h.](assets/pw_n47_user_unit_lista_nm3h.png)
+
+3. Digite **Eng. Unit (0%) = 0** e **Eng. Unit (100%) = 15**. Mantenha **Mode = On**.
+
+![User Unit com 0, 15, Volumetric Flow e N m3/h digitados.](assets/pw_n48_user_unit_digitada.png)
+
+4. Clique em **Write** e **releia** (Measurement → User Unit).
+
+![User Unit relida: On, 0,00, 15,00, N m3/h e Primary Variable 7,4068 N m3.](assets/pw_n49_user_unit_releitura.png)
+
+*[O]: Primary Variable = **7,4068 N m³/h** a 50 %. Previsto [C]: 15 × 0,4938 = 7,407 Nm³/h. A vazão normal real nesse ponto é 7,500 Nm³/h. A diferença de 1,2 % vem da variação de C e ε entre 50 % e 100 %, que a raiz quadrada do transmissor não compensa.*
+
+<a id="o05-p08"></a>
+#### 🔹 Passo 06 — Configurar o display e conferir o LCD
+
+1. Clique em **Configuration → Display**. Estado encontrado: 1ª **PV(%)**, 2ª **Temp.**
+
+![Display antes: PV(%) e Temp.](assets/pw_n50_display_antes.png)
+
+2. Escolha **Display 1st variable = PV** e **Display 2nd variable = Out(mA)**.
+
+![Display editado: PV e Out(mA).](assets/pw_n51_display_editado.png)
+
+3. Clique em **Write** e **releia** pelo **Summary**.
+
+![Summary relido com a configuração completa: PV / Out(mA), mmH2O@20°C, 0,00 a 1150,30, Sqrt, Damping 0,00.](assets/pw_n52_summary_releitura_final.png)
+
+4. Confira o LCD do LD301 no LasecSimul: ele alterna as duas variáveis a cada 3 s (manual, p. 3.15).
+
+![LasecSimul a 50 % depois da parametrização.](assets/ls_n03_fe02_50_lcd_nm3h.png)
+
+<table><tr><td><img src="assets/ls_n03z_lcd_7407_nm3h.png" alt="LCD 7.407 Nm3/h e amperímetro 11,90 mA" width="420"></td><td><img src="assets/ls_n04z_lcd_11901_ma.png" alt="LCD 11.901 mA e amperímetro 11,90 mA" width="420"></td></tr></table>
+
+*[O]: o LCD alterna **7.407 Nm3/h** e **11.901 mA**; o amperímetro indica **11,90 mA**. A indicação de vazão no display está confirmada.*
+
+5. Grave o projeto PACTware com **File → Save**. O arquivo guarda a árvore e a porta; os parâmetros online ficam no transmissor simulado (veja a observação abaixo).
+
+<a id="o05-reconstrucao"></a>
+> **Observação importante — a configuração online não fica no arquivo.** Durante a execução, um `Backspace` enviado com o slider selecionado no desenho apagou o componente; `Ctrl+Z` o restaurou. Essa edição **reconstruiu a simulação**: o LD301 voltou à configuração gravada no `.lsproj` (linear, URV 3376,3) e o modem fechou. Foi preciso abrir o modem, reconectar o LD301 e regravar URV, Sqrt, User Unit e Display, repetindo os Passos 02 a 06. Isso ocorreu na primeira execução (11:45–12:25); as duas capturas abaixo são dela.
+>
+> ![LasecSimul após a reconstrução: modem fechado e LD301 de volta à configuração do arquivo.](assets/lasecsimul_26_reconstrucao_restaura_ld301_fecha_modem.png)
+>
+> ![Releitura online após a reconstrução: URV voltou a 3376,3000.](assets/pactware_65_releitura_apos_reconstrucao_urv_3376.png)
+>
+> Lição: os parâmetros gravados por HART ficam no transmissor simulado **enquanto a simulação não for reconstruída**. Qualquer edição no esquema, como apagar, mover ligações, desfazer ou reabrir o arquivo, restaura a configuração do arquivo. Gravar o projeto com a configuração online não foi testado nesta revisão.
+
+<a id="o05-p09"></a>
+#### 🔹 Passo 07 — Verificar a indicação em vários pontos
+
+Mude a abertura (como na Oficina 03, Etapa 03), aguarde 5 s e registre planta, amperímetro, LCD e, quando indicado, a PV lida no PACTware (**User Unit → Primary Variable**).
+
+![FE-02-AR a 100 %: 5,41 m³/h, 1150 mmH2O, 20,00 mA.](assets/lasecsimul_27_fe02_final_100_lcd_vazao.png)
+
+![Zoom do LCD a 100 %: vazão em Nm3/h e amperímetro 20,00 mA.](assets/lasecsimul_28_fe02_final_100_lcd_nm3h_zoom.png)
+
+![Zoom do LCD a 100 %: 20,00 mA.](assets/lasecsimul_29_fe02_final_100_lcd_ma_zoom.png)
+
+![PACTware a 100 %: Primary Variable 14,9997 N m3.](assets/pactware_66_fe02_pv_100_nm3h.png)
+
+*100 % [O]: 5,41 m³/h; 1150 mmH₂O; amperímetro e LCD **20,00 mA**; PV lida = **14,9997 N m³/h**. Na captura, o primeiro dígito (meio dígito "1") do LCD aparece fraco; a PV lida por HART é a referência numérica.*
+
+![FE-02-AR a 75 %: 4,06 m³/h, 639 mmH2O, LCD 11,180 Nm3/h, 15,93 mA.](assets/lasecsimul_32_fe02_valvula_75.png)
+
+*75 % [O]: 4,06 m³/h; Re 17980; C 0,6159; ε 0,9947; 639 mmH₂O; **15,93 mA**; LCD **11,180 Nm3/h**.*
+
+![FE-02-AR a 50 % depois da regravação: 2,71 m³/h, 280 mmH2O, 11,90 mA.](assets/lasecsimul_33_fe02_valvula_50_apos_regravacao.png)
+
+![PACTware a 50 %: Primary Variable 7,4068 N m3.](assets/pactware_69_fe02_pv_50_apos_regravacao.png)
+
+*50 % [O]: 280 mmH₂O; **11,90 mA**; PV = **7,4068 N m³/h**.*
+
+![FE-02-AR a 26 %: 1,41 m³/h, 74 mmH2O, 8,070 mA.](assets/lasecsimul_31_fe02_valvula_26_acima_corte.png)
+
+*26 % [O]: 1,41 m³/h; Re 6233; 74 mmH₂O = 6,47 % da faixa, logo acima do corte; **8,070 mA**. A raiz amplifica: 6,47 % de ΔP vira 25,4 % de saída.*
+
+![FE-02-AR a 25 %: 1,35 m³/h, 69 mmH2O, 4,000 mA.](assets/lasecsimul_30_fe02_valvula_25_corte_abrupto.png)
+
+![PACTware a 25 %: Primary Variable 0,0000 N m3.](assets/pactware_67_fe02_pv_25_corte_zero.png)
+
+*25 % [O]: 1,35 m³/h; 69 mmH₂O = 5,97 % da faixa, logo abaixo do corte de 6 %; **4,000 mA** e PV = **0,0000 N m³/h**. Corte **abrupto** confirmado: com 1,35 m³/h passando, o transmissor indica zero.*
+
+**Tabela final da FE-02-AR (Python [C] × observado [O])**
+
+| Abertura | ΔP Python | ΔP planta | Corrente prevista | Corrente observada | PV prevista (Nm³/h) | PV / LCD observada | Evidência |
+|---:|---:|---:|---:|---:|---:|---|---|
+| 100 % | 1150,3 mmH₂O | 1150 mmH₂O | 20,000 mA | 20,00 mA | 14,9997 | 14,9997 (HART); LCD 20,00 mA | [planta](assets/lasecsimul_27_fe02_final_100_lcd_vazao.png), [PV](assets/pactware_66_fe02_pv_100_nm3h.png) |
+| 75 % | 639,1 mmH₂O | 639 mmH₂O | 15,926 mA | 15,93 mA | 11,181 | LCD 11,180 | [planta](assets/lasecsimul_32_fe02_valvula_75.png) |
+| 50 % | 280,5 mmH₂O | 280 mmH₂O | 11,901 mA | 11,90 mA | 7,407 | 7,4068 (HART); LCD 7,407 | [planta](assets/lasecsimul_33_fe02_valvula_50_apos_regravacao.png), [PV](assets/pactware_69_fe02_pv_50_apos_regravacao.png) |
+| 26 % | 74,4 mmH₂O | 74 mmH₂O | 8,070 mA | 8,070 mA | 3,816 | não registrado | [planta](assets/lasecsimul_31_fe02_valvula_26_acima_corte.png) |
+| 25 % | 68,7 mmH₂O | 69 mmH₂O | 4,000 mA | 4,000 mA | 0,000 | 0,0000 (HART) | [planta](assets/lasecsimul_30_fe02_valvula_25_corte_abrupto.png), [PV](assets/pactware_67_fe02_pv_25_corte_zero.png) |
+
+**Resultado:** o LD301 foi parametrizado online como transmissor de vazão. Cada página foi gravada e relida, e a indicação coincide com o cálculo em todos os pontos.
+
+**Reflexão:** por que 26 % de abertura já produz 25 % de saída, enquanto 25 % de abertura produz 0 %? Que modo de corte evitaria esse salto e qual seria a corrente a 25 %?
+
+---
+</details>
+
+<a id="oficina-06"></a>
+<details open>
+<summary><strong>📘 Oficina 06 — Exercícios FE-09-AR e FE-01-AR</strong></summary>
+
+**Objetivo:** repetir as Oficinas 02, 03 e 05 com outra placa, sem copiar a tabela de conferência.
+
+As cópias do LasecSimul já foram geradas e **conferidas pelo autor nesta revisão**: a planta responde com os valores do Python. **O LD301 dessas cópias continua com a configuração original** (linear, URV 3376,3); a parametrização é tarefa do aluno.
+
+### FE-09-AR — placa02.jpg
+
+![FE-09-AR a 50 %: 0,27 m³/h, Re 1199, C 0,6245, ε 0,9968, ΔP 3,82 kPa = 390 mmH2O; lâmpada Faixa ISO vermelha.](assets/lasecsimul_35_fe09_valvula_50_verificacao.png)
+
+![FE-09-AR a 100 %: 0,54 m³/h, Re 2397, C 0,6196, ε 0,9867, ΔP 15,86 kPa = 1617 mmH2O; LD301 linear em 11,66 mA.](assets/lasecsimul_34_fe09_valvula_100_verificacao.png)
+
+*Verificação [O]: a 50 %, 390 mmH₂O (folha: 390,0); a 100 %, 1617 mmH₂O (folha: 1617,5). O LD301, ainda linear com URV 3376,3, indica 11,66 mA = 4 + 16 × 1617/3376,3.*
+
+### FE-01-AR — placa01.jpg (furo corrigido)
+
+![FE-01-AR a 100 %: 10,83 m³/h, Re 36194, β 0,7488, C 0,6152, ε 0,9990, ΔP 0,79 kPa = 81 mmH2O; LD301 linear em 4,382 mA.](assets/lasecsimul_36_fe01_valvula_100_verificacao.png)
+
+*Verificação [O]: 10,83 m³/h e 81 mmH₂O (folha: 80,5). O LD301, linear com URV 3376,3, quase não sai de 4 mA (4,382 mA): a faixa do transmissor está 40 vezes maior que o ΔP da placa.*
+
+### Roteiro do aluno
+
+1. Abra a foto da placa e confira cada valor [P] da folha.
+2. Calcule à mão ρₙ, ρ₁, Q₁,max, β, Re, C, ε, ΔPmax e URV. Depois execute o comando da folha e capture o terminal (Oficina 02).
+3. Abra `placa_orificio_FE_09_AR_calculada.lsproj` ou `placa_orificio_FE_01_AR_calculada.lsproj` e confira as Propriedades exportadas (Oficina 03).
+4. Rode a simulação, clique **Abrir** no modem e faça **Connect** no modem COM20 e depois no LD301 (Oficina 04, Passos 08–10).
+5. Grave e releia: URV da folha, **Sqrt**, User Unit 0 → Qₙ,max em **N m3/h**, display PV / Out(mA).
+6. Preencha a seção 7 da folha com valores **observados** a 0, 25, 50 e 100 %, citando a captura de cada um.
+7. **FE-09-AR:** discuta o Re_D < 5000 e o uso da equação de C fora da faixa.
+8. **FE-01-AR:** o URV de 80,5 mmH₂O fica acima do span mínimo do sensor, mas é 63 vezes menor que o limite superior de 50 kPa. Pela tabela de faixas do manual (p. 5.20), qual sensor você especificaria? Que Qₙ,max produziria cerca de 1000 mmH₂O com esta placa?
+
+---
+</details>
+
+<a id="oficina-07"></a>
+<details open>
+<summary><strong>📘 Oficina 07 — Diagnosticar e avaliar</strong></summary>
+
+Investigue por camada, do processo para o host:
+
+1. **Planta:** a simulação está **Rodando**? Os mostradores mudam com a abertura? Se os blocos aparecem como "?", aplique a correção da [Oficina 03, Etapa 01](#oficina-03-etapa-01).
+2. **Transmissor:** a corrente no amperímetro é coerente com ΔP/URV e com a função (linear ou raiz)? Use `python placa_orificio_calculo.py --corrente <mA> --raiz` com os parâmetros da placa.
+3. **Modem e porta:** o botão do modem está em **Fechar** (porta aberta)? O par `COM20 ↔ CNCB0` existe? Outro programa ocupa a porta?
+4. **PACTware:** o **modem COM20** está com o ícone **verde** e o **dispositivo** mostra `#` na aba e **Connected**? Se não: desconecte o LD301 e o COM20 (forçando o fechamento se o PACTware pedir), confira o modem do LasecSimul em **Fechar** e faça Connect no COM20 e depois no LD301.
+5. **Configuração:** depois de qualquer edição no esquema, releia o LD301; a reconstrução restaura a configuração do arquivo.
+
+**Critério de avaliação:** (a) explica a equação e a conversão Nm³/h → m³/h; (b) executa o script e interpreta a saída; (c) diferencia PV de pressão e indicação de vazão; (d) descreve o caminho HART; (e) apresenta, para cada gravação, a captura antes, depois e da releitura; (f) classifica cada ensaio como **APROVADO**, **FALHOU** ou **PENDENTE**, citando a evidência.
+
+---
+</details>
+
+<a id="validacao-final"></a>
+## Validação final e pendências
+
+| Item | Estado | Evidência |
+|---|---|---|
+| Autoteste e sintaxe do script principal | **APROVADO** | [captura](assets/python_02_versao_autoteste.png); `python -m py_compile` sem erro |
+| Cálculo das três placas no terminal | **APROVADO** | [FE-02 100 %](assets/python_04_fe02_saida_valvula_100.png), [FE-02 50 %](assets/python_05_fe02_saida_valvula_50.png), [FE-09](assets/python_06_fe09_saida.png), [FE-01](assets/python_07_fe01_saida.png), [quadro](assets/python_08_tres_placas_resumo.png) |
+| Planta zerada no LasecSimul | **CORRIGIDO** nesta máquina (biblioteca `block-library` ausente no pacote 0.0.100) | [antes](assets/lasecsimul_10_fe02_antes_mostradores_zerados_ld301_responde.png), [teste](assets/lasecsimul_11_teste_sl_gain_sem_biblioteca.png), [depois](assets/lasecsimul_15_modelo_interno_blocos_reconhecidos.png) |
+| Resposta da planta FE-02-AR (0/25/26/50/75/100 %) | **APROVADO** | Oficinas 03 e 05 |
+| Caso-base com água a 50 % | **APROVADO** | [captura](assets/lasecsimul_37_caso_base_agua_valvula_50_corrigido.png) |
+| FE-09-AR e FE-01-AR na planta | **APROVADO** (planta); LD301 **não parametrizado** (exercício) | [FE-09](assets/lasecsimul_34_fe09_valvula_100_verificacao.png), [FE-01](assets/lasecsimul_36_fe01_valvula_100_verificacao.png) |
+| Montagem do PACTware desde o projeto vazio (Add device, duplo clique, COM20, Multimaster em etapa própria, Add LD301, salvar) | **APROVADO** | [início](assets/pw_n01_pactware_aberto_host_pc.png), [COM20](assets/pw_n08_com20_aplicada_multimaster_marcado.png), [Multimaster](assets/pw_n10_multimaster_aplicado.png), [árvore](assets/pw_n15_arvore_com20_ld301.png), [salvo](assets/pw_n17_projeto_salvo.png) |
+| Modem aberto; Connect no modem COM20 e depois no LD301 | **APROVADO** | [modem](assets/ls_n02_fe02_modem_aberto_fechar.png), [COM20 verde](assets/pw_n35_modem_com20_conectado_verde.png), [Connected](assets/pw_n37_ld301_connected_ft100.png) |
+| Ordem errada (Connect com o modem fechado) e recuperação | **REGISTRADO** — só reconectar o LD301 não bastou; foi preciso forçar o fechamento do COM20 e reconectar modem e dispositivo | [67 %](assets/pw_n19_connect_com20_modem_fechado_preso_67.png), [Disconnected](assets/pw_n30_dtm_aberto_antes_reconexao_disconnected.png), [forçar](assets/pw_n32_canal_preso_forcar_fechamento.png) |
+| URV, Sqrt, User Unit e Display gravados e relidos online | **APROVADO** (duas execuções) | [releitura final](assets/pw_n52_summary_releitura_final.png), [User Unit](assets/pw_n49_user_unit_releitura.png), [LCD](assets/ls_n03z_lcd_7407_nm3h.png) |
+| Indicação de vazão no LCD e por HART | **APROVADO** | [LCD 50 %](assets/lasecsimul_24_fe02_final_50_lcd_nm3h_zoom.png), [PV 100 %](assets/pactware_66_fe02_pv_100_nm3h.png) |
+| Edição do ponto e do modo de corte pelo DTM | **PENDENTE** — campos não encontrados nas páginas online do DTM 3.03; 6 % / Hard verificado só pelo comportamento | [25 %](assets/pactware_67_fe02_pv_25_corte_zero.png), [26 %](assets/lasecsimul_31_fe02_valvula_26_acima_corte.png) |
+| Persistência da configuração online no arquivo | **PENDENTE** — a reconstrução restaura o `.lsproj`; gravar o projeto não foi testado | [reconstrução](assets/lasecsimul_26_reconstrucao_restaura_ld301_fecha_modem.png) |
+| Correção da extensão nas outras máquinas | **PENDENTE** — exige cópia da `block-library` ou nova versão do pacote | Oficina 03, Etapa 01 |
+| Dimensões físicas das placas e conformidade ISO | **FORA DO ESCOPO** — leitura por foto; D < 50 mm; uso didático | folhas de dados |
+
+Ao final da primeira execução, a desconexão do canal `COM20` travou em 67 % ("PACTware action active") porque a simulação já tinha sido parada. Ela foi encerrada com **Cancel → Yes** e o PACTware foi fechado. A Oficina 04 foi então refeita do zero, com o PACTware aberto de novo.
+
+<a id="diagnostico"></a>
+## Diagnóstico de problemas
+
+| Sintoma | Verificações em ordem | Interpretação |
+|---|---|---|
+| Blocos do modelo interno aparecem como "?" e mostradores ficam em 0 | pasta `bundled/project/schema/block-library` na extensão; recarregar a janela | biblioteca de blocos `sl.*` ausente na instalação; o motor calcula, a interface não lê |
+| Planta não altera ΔP | simulação rodando; slider 0–100; aguardar 5 s; `Qmax` e geometria | testar o mesmo ponto no Python |
+| Valor do slider vira 100 ao digitar | apagar o conteúdo antes de digitar | o campo limita a 0–100 e anexa o texto |
+| LD301 voltou para URV 3376,3 e linear | houve edição/reconstrução do esquema? | regravar pelo PACTware |
+| Connect no COM20 parado em 67 % | o modem do LasecSimul está em **Abrir** (fechado) | abra o modem; o canal não se recupera sozinho |
+| COM20 em negrito sem verde e DTM Disconnected | Connect feito antes de abrir o modem | Disconnect no LD301 e no COM20 (forçar = Yes), depois Connect no COM20 (verde) e no LD301 |
+| Canal verde e LD301 Disconnected | modem **Aberto**? Disconnect/Connect no LD301 | observação do professor; resolveu na sessão anterior |
+| `Upload failed` | conexão do dispositivo feita antes de abrir o modem | reconectar o LD301 |
+| Corrente 4 mA com vazão > 0 | ΔP/URV abaixo de 6 % com corte Hard? | comportamento esperado do corte abrupto |
+| Corrente quase 4 mA na FE-01-AR | URV muito maior que o ΔP da placa | ajustar URV para 80,5 mmH₂O |
+| PV em `mm` sem sentido | User Unit ligada com escala de nível | configurar Volumetric Flow / N m3/h |
+| Script não inicia | `python --version`; caminho; ponto decimal nos argumentos | o modo interativo aceita vírgula |
+
+<a id="glossario"></a>
+## Glossário
+
+| Termo | Definição nesta prática |
+|---|---|
+| `β` | razão entre o diâmetro do orifício `d` e o diâmetro interno do tubo `D` |
+| `C` | coeficiente de descarga (Reader–Harris/Gallagher) |
+| `ε` | fator de expansibilidade do gás |
+| DTM | módulo de software com as telas de comunicação ou configuração de um equipamento |
+| HART | protocolo digital sobreposto ao laço 4–20 mA |
+| LRV / URV | limites inferior e superior da faixa de **pressão** do LD301 |
+| Nm³/h | vazão de volume referido a 0 °C e 101,325 kPa absolutos |
+| PV | variável primária; com User Unit ligada, é a pressão depois da função de transferência, na unidade do usuário |
+| `Q₁` | vazão volumétrica nas condições de operação (m³/h) |
+| `Re_D` | número de Reynolds referido ao diâmetro do tubo |
+| User Unit | escala de engenharia do LD301: 0 % ↔ LRV e 100 % ↔ URV |
+| mmH₂O / mmH₂O@20 °C | 9,80665 Pa (convencional, usado no script e na planta) / 9,7891 Pa (unidade HART 4 do LD301) |
+
+<a id="referencias"></a>
+## Referências
+
+1. SMAR. *LD301 — Manual de Instruções, Operação e Manutenção*, cópia local [MANUAL_LD301.pdf](MANUAL_LD301.pdf); também no [site da SMAR](https://www.smar.com.br/public/img/dropzone/arquivos/ld301mp.pdf). Páginas usadas: 3.8–3.11, 3.15–3.16, 4.13–4.14, 5.20 e 5.25.
+2. ISO 5167-1 e ISO 5167-2:2022. *Measurement of fluid flow by means of pressure differential devices*. [Escopo da parte 2](https://www.iso.org/standard/79180.html).
+3. Reader-Harris, M. J.; Sattary, J. A. "The orifice plate discharge coefficient equation". *Flow Measurement and Instrumentation*, 1990.
+4. NIST. [Pressure and gas flow unit conversions](https://www.nist.gov/pml/owm/metric-si/unit-conversion/pressure-and-gas-flow-unit-conversions) (condições de referência de gás).
+5. LASEC-UFU. [Repositório LasecSimul](https://github.com/LASEC-UFU/LasecSimul).
+6. Delmée, G. J. *Manual de Medição de Vazão*. Blucher.
+7. Bell, C. et al. Biblioteca `fluids` (origem dos valores de referência do autoteste).
+
+<a id="apendices"></a>
+## Apêndices
+
+### A. Comandos úteis
+
+```powershell
+python --version
+python placa_orificio_calculo.py --autoteste
+python placa_orificio_calculo.py --valvula 50
+python placa_orificio_calculo.py --dp 836.1
+python placa_orificio_calculo.py --corrente 11.96 --raiz
+python python/gerar_folhas_dados.py
+python python/preparar_placa_lasecsimul.py FE-02-AR --substituir-gerado
+python -m py_compile placa_orificio_calculo.py
+```
+
+Unidades: `--dp` em mmH₂O (9,80665 Pa), `--corrente` em mA, `--valvula` em %, `--D`/`--d` em mm, `--T` em °C, `--rho` em kg/m³, `--mu` em cP, `--p1` em kPa manométricos, `--Qmax` em m³/h nas condições de operação.
+
+### B. Scripts auxiliares antigos
+
+`compute_corrections.py`, `find_beta.py`, `orifice_plate_beta.py`, `orifice_plate_flow.py` e `orifice_plate_dp.py` usam correções heurísticas e coeficientes típicos. Eles não implementam a equação de Reader–Harris/Gallagher e não devem ser usados como fonte de valores normativos.
+
+<a id="apendice-caso-base"></a>
+### C. Caso-base do projeto principal (água, 15 m³/h)
+
+Configuração do arquivo: D = 52,5 mm, d = 31,5 mm, β = 0,6, tomada flange, água a 20 °C (ρ = 998,2 kg/m³, μ = 1,002 cP), p₁ = 200 kPa, 44D/8D, LD301 com URV = 3376,3 mmH₂O.
+
+| Abertura | Q | Re_D | C | ΔP | Corrente linear | Corrente com raiz |
 |---:|---:|---:|---:|---:|---:|---:|
-| 100 % | | | | | | |
-| 75 % | | | | | | |
-| 50 % | | | | | | |
-| 30 % | | | | | | |
-| 20 % | | | | | | |
+| 100 % | 15,00 m³/h | 100668 | 0,6124 | 3376,3 mmH₂O | 20,00 mA | 20,00 mA |
+| 75 % | 11,25 m³/h | 75501 | 0,6135 | 1892,5 mmH₂O | 12,97 mA | 15,98 mA |
+| 50 % | 7,50 m³/h | 50334 | 0,6153 | 836,1 mmH₂O | 7,96 mA | 11,96 mA |
+| 30 % | 4,50 m³/h | 30200 | 0,6184 | 298,0 mmH₂O | 5,41 mA | 8,75 mA |
+| 20 % | 3,00 m³/h | 20134 | 0,6216 | 131,1 mmH₂O | 4,62 mA | 4,00 mA (corte) |
 
-### Parte B: coeficiente de descarga e número de Reynolds
+Valores [C] do script. O ponto de 50 % foi observado na planta corrigida (Oficina 01): 7,50 m³/h, 836 mmH₂O e 7,961 mA com o LD301 linear.
 
-1. Para cada abertura da Parte A, anote `Re_D` e `C (ISO 5167-2)` nos displays da planta.
-2. Faça um gráfico de `C` em função de `Re_D`.
-3. Explique por que a vazão indicada pelo LD301 a 50 % (7,46 m³/h) difere da real (7,50 m³/h).
+### D. Correções feitas nesta revisão
 
-### Parte C: tipo de tomada
+1. **FE-01-AR:** d = 15,673 mm e d/D = 0,7488 (antes 8,89 mm e 0,425). Folha, projeto e README2.md recalculados. URV de 1123,2 para 80,5 mmH₂O.
+2. **Planta zerada:** causa identificada (biblioteca `block-library` ausente no pacote 0.0.100) e corrigida; resposta da planta comprovada. A afirmação anterior de que "a resposta da planta falhou" foi reinterpretada: o motor calculava, só a visualização falhava.
+3. **`preparar_placa_lasecsimul.py`:** deixou de trocar o modelo da placa pelo modelo antigo do backup. Agora parte do projeto principal (modelo `sl.*`, que funciona) e corrige d da FE-01-AR. As cópias `_compativel` ficaram obsoletas.
+4. **`placa_orificio_calculo.py`:** a saída mostra Q com 3 casas, ΔP em kPa com 4 casas e em mmH₂O e mmH₂O@20 °C. O cabeçalho aponta o projeto correto. Nenhuma equação mudou; o autoteste continua passando.
+5. **Folhas de dados:** origem de cada valor ([P]/[E]/[C]/[O]); Re, C e ε por ponto; páginas reais do DTM para cada parâmetro; seção de valores observados; verificação item a item dos limites da ISO; nota sobre mmH₂O@20 °C.
+6. **User Unit inicial:** estava **ligada** (243–800 mm), e não desligada como dizia o README anterior.
+7. **Manual:** referências passaram a citar a página impressa e a do PDF. Registradas a lista de funções, as unidades de User Unit, o display e as divergências (span mínimo; código M2).
 
-Com a válvula em 100 %, troque o tipo de tomada e registre:
+<a id="indice-evidencias"></a>
+### E. Índice de evidências (capturas desta revisão)
 
-| Tomada | C | ΔP (mmH2O) | Q calculada pelo script (m³/h) |
-|---|---:|---:|---:|
-| Flange | | | |
-| D e D/2 | | | |
-| Canto | | | |
+| Arquivo | Etapa |
+|---|---|
+| `python_01` a `python_08` | Oficina 02 — script, versão/autoteste, comando, FE-02 100 % e 50 %, FE-09, FE-01, quadro |
+| `lasecsimul_10`, `lasecsimul_11` | Oficina 03 — diagnóstico (antes) |
+| `lasecsimul_15` | Oficina 03 — modelo interno corrigido |
+| `lasecsimul_12`, `13`, `14`, `16` | Oficina 03 — validação da planta FE-02 |
+| `lasecsimul_17`, `18` | Oficina 05 — modem Abrir/Fechar |
+| `pw_n01` a `pw_n17` | Oficina 04 — PACTware desde o projeto vazio até salvar (execução contínua, 12:45–12:49) |
+| `ls_n01`, `ls_n02`, `pw_n18` a `pw_n37` | Oficina 04 — modem, ordem errada, recuperação e conexão correta (12:49–12:57) |
+| `pw_n38` a `pw_n52`, `ls_n03`, `ls_n03z`, `ls_n04z` | Oficina 05 — leitura, gravação, releitura e LCD (12:57–13:02) |
+| `pactware_41` a `pactware_67`, `pactware_69` | primeira execução completa (11:45–12:25); `pactware_65` a `69` e `68` são usadas na Oficina 05 |
+| `lasecsimul_19` a `lasecsimul_25` | Oficina 05 — efeito de cada gravação na planta e no LCD (`19` e `21` são as telas inteiras de `20` e `22`) |
+| `lasecsimul_26`, `pactware_65` | Oficina 05 — reconstrução e releitura |
+| `lasecsimul_27` a `33`, `pactware_66`, `67`, `69` | Oficina 05 — verificação em 100/75/50/26/25 % |
+| `lasecsimul_34` a `36` | Oficina 06 — FE-09 e FE-01 |
+| `lasecsimul_37` | Oficina 01 — caso-base corrigido |
 
-### Parte D: trechos retos
-
-1. Com a válvula em 100 %, reduza o trecho reto a montante para 30, 20, 13, 10 e 5 D.
-2. Registre o estado da lâmpada "Montante", o desvio didático, o `C` real, o `ΔP` e a vazão indicada pelo LD301.
-3. A partir de qual comprimento a medição sai da norma? Qual o erro de vazão com 5 D?
-
-### Parte E: material e temperatura
-
-1. Troque o material da tubulação para ferro fundido e depois para aço galvanizado. Registre `10^4·Ra/D`, a lâmpada "Rugosidade" e o `ΔP`.
-2. Volte para aço carbono e aumente a temperatura para 80 °C. Registre `D`, `d` e `ΔP` e explique a variação.
-
-### Questões para o relatório
-
-1. Por que o LRV/URV do LD301 é configurado em pressão e não em vazão?
-2. Qual seria a corrente a 10 % de vazão com a função linear? E com a raiz? Discuta a rangeabilidade.
-3. Para que serve o ponto de corte da raiz? Compare os modos Hard e Bumpless.
-4. Se o fluido mudar de água para óleo (ρ = 870 kg/m³, μ = 30 cP), o que precisa ser reconfigurado no LD301?
-
-Essa atividade conecta a norma, o comportamento físico do elemento primário e a configuração real de um transmissor HART.
-
----
-
-## 13. Conclusão
-
-A prática mostra, de forma aplicada, a cadeia completa de uma medição de vazão por pressão diferencial:
-
-- a vazão acelera o fluido no orifício e cria uma queda de pressão;
-- a norma ISO 5167-2 relaciona essa queda à vazão pelo coeficiente `C`;
-- o LD301 mede a pressão diferencial entre as tomadas de alta e de baixa;
-- a função raiz quadrada torna a corrente proporcional à vazão;
-- a Unidade do Usuário e o display apresentam a vazão em engenharia;
-- a instalação (tomadas, trechos retos, rugosidade) define se a medição é confiável.
-
-Com isso, o roteiro serve tanto como material de estudo quanto como apoio para a aula prática de instrumentação.
-
----
-
-## 14. Referências
-
-- Apostila de Instrumentação Industrial II - UFU
-- ISO 5167-1 e ISO 5167-2. *Measurement of fluid flow by means of pressure differential devices inserted in circular cross-section conduits running full — Part 1: General principles; Part 2: Orifice plates.*
-- Reader-Harris, M. J.; Sattary, J. A. *The orifice plate discharge coefficient equation.* Flow Measurement and Instrumentation, 1990.
-- Smar. *LD301 — Manual de Instruções, Operação e Manutenção* (seção 3: Função de Transferência, User Unit e LCD Indicator).
-- Delmée, G. J. *Manual de Medição de Vazão.* Editora Blucher.
-- Bell, C. *fluids: Fluid dynamics component of Chemical Engineering Design Library (ChEDL)* — biblioteca de referência usada para validar o simulador.
-- [LasecSimul — LASEC/UFU](https://github.com/LASEC-UFU/LasecSimul)
-
----
-
-## 15. Apêndice: lista de imagens
-
-Todas as imagens ficam na pasta [`assets/`](assets), com os nomes exatos da tabela. Cada figura do texto já traz, no quadro "Imagem a inserir", o que ela precisa mostrar. Este apêndice reúne como produzir cada uma.
-
-### 15.1 Como produzir as imagens
-
-- **Capturas do LasecSimul:** VS Code maximizado (1920 × 1080), barra lateral fechada (`Ctrl+B`) e escala do Windows em 100 %. Rode a simulação e espere os valores estabilizarem antes de capturar. Use **Ajustar tudo** ou **Ajustar seleção** na barra do esquemático e a Ferramenta de Captura (`Win+Shift+S`), recortando só a área de interesse. Salve em PNG.
-- **Capturas do PACTware:** janela maximizada, LD301 conectado (ícones verdes). Recorte a árvore do projeto e a área do DTM. Se uma tela for longa, capture só a parte com os campos citados no texto.
-- **Fotos:** luz difusa, sem flash direto no display (evita reflexo), câmera paralela ao objeto. Salve em JPG.
-- **Desenhos:** diagrams.net (draw.io), Inkscape ou PowerPoint, fundo branco, exportados em PNG com cerca de 1600 px de largura.
-- **Anotações:** setas e números em vermelho, fonte sem serifa. Explique cada número na legenda ou no parágrafo da figura.
-- **Cores das tomadas:** use as mesmas do LasecSimul em todos os desenhos: **alta (H) em laranja** e **baixa (L) em amarelo**.
-
-### 15.2 Figuras
-
-| Figura | Arquivo | Tipo | Como obter | O que destacar |
-|---:|---|---|---|---|
-| 1 | `fig01_placa_orificio.jpg` | Foto | Fotografe a placa do laboratório sobre fundo neutro em duas vistas: a face de montante e o perfil. Pode reaproveitar `placa01.jpg` a `placa03.jpg` da pasta antiga da prática. | Aresta viva (montante), chanfro a 45° (jusante) e haste com a gravação do diâmetro `d`, do material e do tag FE. |
-| 2 | `fig02_perfil_pressao.png` | Desenho | Corte da tubulação com a placa e as linhas de corrente se contraindo. Embaixo, um gráfico da pressão ao longo do eixo: patamar `P_1`, queda até a vena contracta (cerca de 0,5 D depois da placa) e recuperação parcial até cerca de 6 D. | Cotas de `ΔP` (entre as tomadas) e de `Δω` (entre `P_1` e a pressão recuperada); posição da vena contracta. |
-| 3 | `fig03_tipos_tomada.png` | Desenho | Corte da placa entre flanges com as três tomadas em cores diferentes: canto (rente à placa), flange (25,4 mm de cada face) e D e D/2 (na tubulação). | Cotas de 25,4 mm, `D` e `D/2`; sinais + e − de cada tomada. |
-| 4 | `fig04_trechos_retos.png` | Desenho | Linha com a curva de 90°, o trecho reto a montante, a placa, o trecho a jusante e a válvula de controle, com as tomadas descendo até o LD301. | Cotas `L montante = n·D` e `L jusante = n·D`; setas de escoamento. |
-| 5 | `fig05_projeto_completo.png` | Captura LasecSimul | Abra `placa_orificio_ld301.lsproj`, clique em **Run**, ponha a válvula em 50 %, espere 3 s e clique em **Ajustar tudo**. Capture o esquemático inteiro com o selo "Running". | Números de 1 a 8: slider, planta, LD301, fonte, resistor, amperímetro, modem HART e osciloscópio. |
-| 6 | `fig06_planta.png` | Captura LasecSimul | Válvula em 100 %, espere 3 s. Selecione a planta, clique em **Ajustar seleção** e recolha o painel Properties (seta `›`). Capture só a planta. | Lâmpada Flange acesa, lâmpadas de conformidade verdes, displays de Vazão 15,00 m³/h, Reynolds, C e ΔP 3376 mmH2O. |
-| 7 | `fig07_propriedades_exportadas.png` | Captura LasecSimul | Selecione a planta, abra o painel **Properties**, role até "Propriedades exportadas" e clique na caixa "Tipo de tomada" para abrir a lista antes de capturar. | A lista aberta (Flange, D e D/2, Canto) e os campos numéricos de D, d e trechos retos. |
-| 8 | `fig08_malha_4_20.png` | Captura LasecSimul | Com a válvula em 100 %, aproxime a região do LD301 com `Ctrl` + roda do mouse e capture. | Fios HIGH (laranja) e LOW (amarelo), fonte de 24 V, resistor de 250 Ω, amperímetro com 20,00 mA e modem HART. |
-| 9 | `fig09_com0com.png` | Captura Windows | Menu Iniciar → **com0com** → **Setup**. Capture a janela com o par de portas. | Os nomes `CNCB0` e `COM20` do mesmo par. |
-| 10 | `fig10_pactware_conectado.png` | Captura PACTware | Com a simulação rodando, conecte o LD301 e abra a Parametrização online. Capture a janela inteira. | Ícones verdes na árvore, tag FT100 e PV em mmH2O. |
-| 11 | `fig11_dtm_calibration.png` | Captura PACTware | Tela **Calibration** com os valores digitados, antes de aplicar. | Unidade mmH2O, Lower 0 e Upper 3376,3. |
-| 12 | `fig12_dtm_function.png` | Captura PACTware | Tela **Configuration → Function** com a raiz selecionada. | Sqrt, ponto de corte 6 % e modo Hard. |
-| 13 | `fig13_dtm_user_unit.png` | Captura PACTware | Tela **User Unit** com a lista de unidades aberta em m3/h. | On, m3/h, 0 (0 %) e 15 (100 %). |
-| 14 | `fig14_dtm_display.png` | Captura PACTware | Tela de configuração do display. | First Var = PV e Second Var = OUT. |
-| 15 | `fig15_lcd_vazao.png` | Captura LasecSimul (montagem) | Válvula em 100 %. Aproxime o display do LD301 (zoom de cerca de 300 %) e capture duas vezes com 3 s de intervalo, uma em cada página. Monte as duas lado a lado. | "15.00 m3/h" com o ícone PV aceso e "20.00 mA". |
-| 16 | `fig16_grafico_corrente_vazao.png` | Gráfico | Planilha ou Python com os valores medidos na tabela da seção 10.5: vazão no eixo x e corrente no eixo y, uma série linear e uma com raiz. | Região sombreada abaixo do corte (até 3,67 m³/h); legenda das duas funções. |
-| 17 | `fig17_script_python.png` | Captura terminal | No terminal do VS Code, nesta pasta, rode `python placa_orificio_calculo.py --dp 836.1` e capture a saída. | A tabela de iterações e a linha "Vazão 7.50 m³/h" do relatório. |
+**Registros complementares (não aparecem no texto, mas foram mantidos como evidência):** `pactware_01` a `pactware_40` e `lasecsimul_01` a `lasecsimul_09` são da sessão anterior, com a primeira montagem do PACTware e as telas da planta zerada. `pactware_41` a `pactware_64`, `lasecsimul_17` a `lasecsimul_25` são da primeira execução completa desta revisão (11:45–12:25), substituídas no texto pela execução contínua `pw_n*`. `pw_n18`, `pw_n20` a `pw_n24`, `pw_n26` a `pw_n29` e `pw_n31` são os passos intermediários da tentativa na ordem errada, resumida na Oficina 04. `oficina_simulide_01_inicial.jpg` é de uma versão anterior do material e não se refere a esta prática.

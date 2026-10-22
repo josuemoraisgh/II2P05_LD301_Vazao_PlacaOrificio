@@ -1,7 +1,8 @@
 """
 Cálculo de vazão em placa de orifício (ISO 5167-2) para conferir a simulação do LasecSimul.
 
-Projeto: trm/ld301/placa_orificio_ld301.lsproj, planta "Placa de orifício (vazão por ΔP)".
+Projeto: placa_orificio_ld301.lsproj (e as cópias placa_orificio_FE_*_calculada.lsproj),
+planta "Placa de orifício (vazão por ΔP)".
 O script usa as MESMAS equações e os MESMOS ajustes da planta. Com os mesmos valores, ele chega à
 mesma vazão mostrada no display "Vazão" da simulação.
 
@@ -63,8 +64,10 @@ MATERIAIS = {
 }
 TOMADAS = {1: "Flange (25,4 mm da placa)", 2: "D e D/2 (radius taps)", 3: "Canto (corner taps)"}
 
-MMH2O_EM_PA = 9.80665          # 1 mmH2O = 9,80665 Pa
+MMH2O_EM_PA = 9.80665          # 1 mmH2O convencional = 9,80665 Pa (o mesmo fator do bloco dp_mm da planta)
 KPA_EM_MMH2O = 101.97162       # 1 kPa = 101,97162 mmH2O
+# O LD301 real usa mmH2O a 20 °C (código HART 4): 1 inH2O@20 °C = 248,642 Pa (manual, Tabela 3.1).
+MMH2O_20C_EM_PA = 248.642 / 25.4
 P_ATM_KPA = 101.325            # pressão atmosférica [kPa]
 
 
@@ -272,13 +275,14 @@ def relatorio(cfg, r):
           f"+ rugosidade {dev['rugosidade']:.3f} % = {dev['total']:.2f} %{'' if cfg['desvio'] == 1 else ' (desligado)'}")
     print("  Conformidade: " + ", ".join(f"{nome} {'OK' if ok else 'FORA'}" for nome, ok in r["ok"].items()))
     print("\nResultado (compare com os displays da planta)")
-    print(f"  Vazão               {r['Q']:.2f} m³/h")
+    print(f"  Vazão               {r['Q']:.3f} m³/h (nas condições de operação)")
     print(f"  Velocidade          {r['v']:.2f} m/s")
     print(f"  Reynolds Re_D       {r['Re']:.0f}")
     print(f"  C (ISO 5167-2)      {r['C_iso']:.4f}")
     print(f"  C real (com desvio) {r['C_real']:.4f}")
     print(f"  ε (expansibilidade) {r['eps']:.4f}")
-    print(f"  ΔP na placa         {r['dp_pa'] / 1000:.2f} kPa = {r['dp_pa'] / MMH2O_EM_PA:.0f} mmH2O")
+    print(f"  ΔP na placa         {r['dp_pa'] / 1000:.4f} kPa = {r['dp_pa'] / MMH2O_EM_PA:.1f} mmH2O "
+          f"(= {r['dp_pa'] / MMH2O_20C_EM_PA:.1f} mmH2O@20°C)")
     print(f"  Perda permanente    {r['perda_kpa']:.2f} kPa")
     print(f"  HIGH / LOW          {KPA_EM_MMH2O * cfg['p1']:.0f} / {KPA_EM_MMH2O * cfg['p1'] - r['dp_pa'] / MMH2O_EM_PA:.0f} mmH2O")
 

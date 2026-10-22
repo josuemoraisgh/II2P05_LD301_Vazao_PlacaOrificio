@@ -1,0 +1,29 @@
+Vazão imposta pela válvula: Q = Qmax·u/100 = 15.0·50.0/100 = 7.5000 m³/h
+
+Ajustes
+  D = 52.5 mm, d = 31.5 mm (a 20 °C); tomada: Flange (25,4 mm da placa)
+  Tubulação: Aço carbono; placa: Aço inox AISI 316; T = 20.0 °C
+  Fluido: líquido; ρ = 998.2 kg/m³; μ = 1.002 cP; p1 = 200.0 kPa
+
+Geometria na temperatura de operação
+  D = 52.5·(1 + 11.2e-6·(20.0 − 20)) = 52.50 mm
+  d = 31.5·(1 + 16.0e-6·(20.0 − 20)) = 31.500 mm
+  β = d/D = 0.6000
+
+Instalação (ISO 5167-2, Tabela 3 -- uma curva de 90°)
+  Montante: instalado 44.0 D, exigido 42 D (mínimo com +0,5 %: 13 D)
+  Jusante:  instalado 8.0 D, exigido 7 D
+  10⁴·Ra/D = 2.86 (limite 4.07)
+  Desvio didático de C: montante 0.000 % + jusante 0.000 % + rugosidade 0.000 % = 0.00 %
+  Conformidade: Montante OK, Jusante OK, Rugosidade OK, Faixa ISO OK
+
+Resultado (compare com os displays da planta)
+  Vazão               7.500 m³/h (nas condições de operação)
+  Velocidade          0.96 m/s
+  Reynolds Re_D       50334
+  C (ISO 5167-2)      0.6153
+  C real (com desvio) 0.6153
+  ε (expansibilidade) 1.0000
+  ΔP na placa         8.1992 kPa = 836.1 mmH2O (= 837.6 mmH2O@20°C)
+  Perda permanente    5.12 kPa
+  HIGH / LOW          20394 / 19558 mmH2O

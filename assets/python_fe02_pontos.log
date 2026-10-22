@@ -1,0 +1,55 @@
+=== FE-02-AR --valvula 100
+Resultado (compare com os displays da planta)
+  Vazão               5.413 m³/h (nas condições de operação)
+  Velocidade          7.67 m/s
+  Reynolds Re_D       23973
+  C (ISO 5167-2)      0.6148
+  C real (com desvio) 0.6148
+  ε (expansibilidade) 0.9904
+  ΔP na placa         11.2802 kPa = 1150.3 mmH2O (= 1152.3 mmH2O@20°C)
+  Perda permanente    9.28 kPa
+  HIGH / LOW          20394 / 19244 mmH2O
+=== FE-02-AR --valvula 75
+Resultado (compare com os displays da planta)
+  Vazão               4.060 m³/h (nas condições de operação)
+  Velocidade          5.75 m/s
+  Reynolds Re_D       17980
+  C (ISO 5167-2)      0.6159
+  C real (com desvio) 0.6159
+  ε (expansibilidade) 0.9947
+  ΔP na placa         6.2672 kPa = 639.1 mmH2O (= 640.2 mmH2O@20°C)
+  Perda permanente    5.16 kPa
+  HIGH / LOW          20394 / 19755 mmH2O
+=== FE-02-AR --valvula 50
+Resultado (compare com os displays da planta)
+  Vazão               2.707 m³/h (nas condições de operação)
+  Velocidade          3.83 m/s
+  Reynolds Re_D       11986
+  C (ISO 5167-2)      0.6180
+  C real (com desvio) 0.6180
+  ε (expansibilidade) 0.9977
+  ΔP na placa         2.7505 kPa = 280.5 mmH2O (= 281.0 mmH2O@20°C)
+  Perda permanente    2.26 kPa
+  HIGH / LOW          20394 / 20114 mmH2O
+=== FE-02-AR --valvula 26
+Resultado (compare com os displays da planta)
+  Vazão               1.407 m³/h (nas condições de operação)
+  Velocidade          1.99 m/s
+  Reynolds Re_D       6233
+  C (ISO 5167-2)      0.6227
+  C real (com desvio) 0.6227
+  ε (expansibilidade) 0.9994
+  ΔP na placa         0.7299 kPa = 74.4 mmH2O (= 74.6 mmH2O@20°C)
+  Perda permanente    0.60 kPa
+  HIGH / LOW          20394 / 20320 mmH2O
+=== FE-02-AR --valvula 25
+Resultado (compare com os displays da planta)
+  Vazão               1.353 m³/h (nas condições de operação)
+  Velocidade          1.92 m/s
+  Reynolds Re_D       5993
+  C (ISO 5167-2)      0.6231
+  C real (com desvio) 0.6231
+  ε (expansibilidade) 0.9994
+  ΔP na placa         0.6740 kPa = 68.7 mmH2O (= 68.8 mmH2O@20°C)
+  Perda permanente    0.55 kPa
+  HIGH / LOW          20394 / 20326 mmH2O

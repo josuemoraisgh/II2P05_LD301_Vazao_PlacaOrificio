@@ -1,0 +1,13 @@
+  OK    C a 15 m³/h (flange): 0.612422442 (esperado 0.612422442)
+  OK    ΔP a 15 m³/h [mmH2O]: 3376.28517 (esperado 3376.28517)
+  OK    perda permanente [kPa]: 20.7282129 (esperado 20.7282129)
+  OK    ΔP a 7,5 m³/h [mmH2O]: 836.081492 (esperado 836.081492)
+  OK    C tomada D e D/2: 0.612965723 (esperado 0.612965723)
+  OK    C tomada de canto: 0.611526304 (esperado 0.611526304)
+  OK    ΔP com montante 10 D [mmH2O]: 3319.86515 (esperado 3319.86515)
+  OK    ε do gás: 0.988368449 (esperado 0.988368449)
+  OK    ΔP do gás [mmH2O]: 1244.19977 (esperado 1244.19977)
+  OK    vazão do ΔP 836,08 mmH2O [m³/h]: 7.5 (esperado 7.5)
+  OK    vazão do gás pelo ΔP [m³/h]: 150 (esperado 150)
+  OK    vazão da corrente com raiz [m³/h]: 7.5 (esperado 7.5)
+Autoteste: tudo certo
