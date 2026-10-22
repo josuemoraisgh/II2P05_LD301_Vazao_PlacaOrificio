@@ -11,7 +11,7 @@ Este roteiro conduz a medição de vazão por pressão diferencial com três fer
 > - **Python:** o script principal foi executado no terminal do VS Code para as três placas. A saída mostra geometria, vazão, Reynolds, C, ε e ΔP ([Oficina 02](#oficina-02)).
 > - **LasecSimul:** a "planta zerada" foi diagnosticada e corrigida. O pacote instalado da extensão 0.0.100 não trazia a pasta `bundled/project/schema/block-library`. Sem ela, os blocos `sl.*` apareciam como "?" e os mostradores não recebiam valores. Depois da correção, a planta FE-02-AR respondeu a 0 %, 25 %, 26 %, 50 %, 75 % e 100 % de abertura, com valores iguais aos do Python ([Oficina 03](#oficina-03)).
 > - **PACTware:** o projeto foi montado do zero numa execução contínua: Add device do HART Communication, duplo clique, `COM20`, Multimaster desmarcado em etapa própria, Add device do LD301 e projeto salvo. Em seguida: **Abrir** no modem do LasecSimul, **Connect no modem COM20** e **Connect no LD301**, em passos separados ([Oficina 04](#oficina-04)). No **Online Parameterize** foram gravados e relidos: faixa 0–1150,3 mmH₂O, função **Sqrt**, User Unit **0–15 N m³/h** e display **PV / Out(mA)**. O LCD do LD301 passou a mostrar **7.407 Nm3/h** e 11.901 mA ([Oficina 05](#oficina-05)).
-> - **Pendências reais:** veja [Validação final](#validacao-final).
+> - **Limitação restante:** o DTM 3.03 não expõe os parâmetros do corte do LD301; veja [Validação final e limitações restantes](#validacao-final). A persistência da configuração HART no `.lsproj` foi corrigida.
 
 **Convenção usada em todo o roteiro.** **[P]** = lido na plaqueta fotografada. **[E]** = dado de processo **estipulado para a prática**, conforme pedido do professor. **[C]** = calculado. **[O]** = observado na tela de uma ferramenta durante a execução. Um valor [C] nunca é apresentado como leitura do simulador ou do transmissor.
 
@@ -37,7 +37,7 @@ Este roteiro conduz a medição de vazão por pressão diferencial com três fer
   - [Oficina 05 — Parametrizar o LD301 como transmissor de vazão (FE-02-AR)](#oficina-05)
   - [Oficina 06 — Exercícios FE-09-AR e FE-01-AR](#oficina-06)
   - [Oficina 07 — Diagnosticar e avaliar](#oficina-07)
-- [Validação final e pendências](#validacao-final)
+- [Validação final e limitações restantes](#validacao-final)
 - [Diagnóstico de problemas](#diagnostico)
 - [Glossário](#glossario)
 - [Referências](#referencias)
@@ -273,7 +273,7 @@ capturas/                    capturas de tela usadas neste roteiro
 | [`python/gerar_folhas_dados.py`](python/gerar_folhas_dados.py), [`python/preparar_placa_lasecsimul.py`](python/preparar_placa_lasecsimul.py) | Geração das folhas e das cópias do LasecSimul |
 | [`python/saidas/`](python/saidas/) | Saídas de texto do Python (autoteste, caso-base, pontos da FE-02-AR) |
 | [`docs/MANUAL_LD301.pdf`](docs/MANUAL_LD301.pdf) | Manual do transmissor |
-| [`docs/RELATORIO_VALIDACAO.md`](docs/RELATORIO_VALIDACAO.md) | Resultados verificados e pendências |
+| [`docs/RELATORIO_VALIDACAO.md`](docs/RELATORIO_VALIDACAO.md) | Resultados verificados e limitações restantes |
 | [`imagens/`](imagens/), [`capturas/`](capturas/) | Fotos das plaquetas e capturas de tela; o [índice de evidências](#indice-evidencias) lista cada captura |
 
 Os arquivos legados (projetos intermediários, backups de migração, manual duplicado e scripts exploratórios antigos) foram removidos na organização de 22/10/2026 e continuam disponíveis no histórico do git.
@@ -789,16 +789,18 @@ O transmissor simulado guarda `sqrtCutoff.point = 6` e `sqrtCutoff.mode = Hard` 
 
 *[O]: o LCD alterna **7.407 Nm3/h** e **11.901 mA**; o amperímetro indica **11,90 mA**. A indicação de vazão no display está confirmada.*
 
-5. Grave o projeto PACTware com **File → Save**. O arquivo guarda a árvore e a porta; os parâmetros online ficam no transmissor simulado (veja a observação abaixo).
+5. Grave o projeto PACTware com **File → Save** para guardar a árvore de comunicação e a porta. Depois de qualquer alteração online no LD301, use **Ctrl+S / Salvar** no LasecSimul: os parâmetros HART atuais do transmissor interno são copiados para o `.lsproj`.
 
 <a id="o05-reconstrucao"></a>
-> **Observação importante — a configuração online não fica no arquivo.** Durante a execução, um `Backspace` enviado com o slider selecionado no desenho apagou o componente; `Ctrl+Z` o restaurou. Essa edição **reconstruiu a simulação**: o LD301 voltou à configuração gravada no `.lsproj` (linear, URV 3376,3) e o modem fechou. Foi preciso abrir o modem, reconectar o LD301 e regravar URV, Sqrt, User Unit e Display, repetindo os Passos 02 a 06. Isso ocorreu na primeira execução (11:45–12:25); as duas capturas abaixo são dela.
+> **Histórico do problema de persistência (corrigido).** Na primeira execução, antes da correção, um `Backspace` enviado com o slider selecionado apagou o componente; o `Ctrl+Z` reconstruiu a simulação e o LD301 voltou à configuração original do `.lsproj` (linear, URV 3376,3). As capturas abaixo documentam esse comportamento anterior à correção.
 >
-> ![LasecSimul após a reconstrução: modem fechado e LD301 de volta à configuração do arquivo.](capturas/lasecsimul_26_reconstrucao_restaura_ld301_fecha_modem.png)
+> Agora, ao salvar o projeto no LasecSimul, as propriedades HART atuais do LD301 interno são copiadas para os overrides da instância no `.lsproj`. A captura também ocorre antes de reconstruir a simulação, preservando os valores na sessão e marcando o projeto como alterado. Para persistir no arquivo em disco, pressione **Ctrl+S / Salvar** no LasecSimul após configurar o LD301 pelo PACTware. **File → Save** no PACTware continua salvando somente a árvore de comunicação e a porta.
 >
-> ![Releitura online após a reconstrução: URV voltou a 3376,3000.](capturas/pactware_65_releitura_apos_reconstrucao_urv_3376.png)
+> A regressão de save/reopen verifica a função Sqrt e o cutoff Hard de 6 %; a auditoria LD301 passou com 256 verificações e zero falhas (`core/test/core/protocols/HartLd301Test.cpp`).
 >
-> Lição: os parâmetros gravados por HART ficam no transmissor simulado **enquanto a simulação não for reconstruída**. Qualquer edição no esquema, como apagar, mover ligações, desfazer ou reabrir o arquivo, restaura a configuração do arquivo. Gravar o projeto com a configuração online não foi testado nesta revisão.
+> ![LasecSimul após a reconstrução na execução anterior à correção: modem fechado e LD301 de volta à configuração do arquivo.](capturas/lasecsimul_26_reconstrucao_restaura_ld301_fecha_modem.png)
+>
+> ![Releitura online após a reconstrução na execução anterior à correção: URV voltou a 3376,3000.](capturas/pactware_65_releitura_apos_reconstrucao_urv_3376.png)
 
 <a id="o05-p09"></a>
 #### 🔹 Passo 07 — Verificar a indicação em vários pontos
@@ -898,7 +900,7 @@ Investigue por camada, do processo para o host:
 2. **Transmissor:** a corrente no amperímetro é coerente com ΔP/URV e com a função (linear ou raiz)? Use `python placa_orificio_calculo.py --corrente <mA> --raiz` com os parâmetros da placa.
 3. **Modem e porta:** o botão do modem está em **Fechar** (porta aberta)? O par `COM20 ↔ CNCB0` existe? Outro programa ocupa a porta?
 4. **PACTware:** o **modem COM20** está com o ícone **verde** e o **dispositivo** mostra `#` na aba e **Connected**? Se não: desconecte o LD301 e o COM20 (forçando o fechamento se o PACTware pedir), confira o modem do LasecSimul em **Fechar** e faça Connect no COM20 e depois no LD301.
-5. **Configuração:** depois de qualquer edição no esquema, releia o LD301; a reconstrução restaura a configuração do arquivo.
+5. **Persistência HART:** depois de alterar parâmetros online, use **Ctrl+S / Salvar** no LasecSimul. Se o projeto foi reconstruído, confira o indicador de alterações e salve o `.lsproj` antes de fechar.
 
 **Critério de avaliação:** (a) explica a equação e a conversão Nm³/h → m³/h; (b) executa o script e interpreta a saída; (c) diferencia PV de pressão e indicação de vazão; (d) descreve o caminho HART; (e) apresenta, para cada gravação, a captura antes, depois e da releitura; (f) classifica cada ensaio como **APROVADO**, **FALHOU** ou **PENDENTE**, citando a evidência.
 
@@ -906,7 +908,7 @@ Investigue por camada, do processo para o host:
 </details>
 
 <a id="validacao-final"></a>
-## Validação final e pendências
+## Validação final e limitações restantes
 
 | Item | Estado | Evidência |
 |---|---|---|
@@ -923,7 +925,7 @@ Investigue por camada, do processo para o host:
 | URV, Sqrt, User Unit e Display gravados e relidos online | **APROVADO** (duas execuções) | [releitura final](capturas/pw_n52_summary_releitura_final.png), [User Unit](capturas/pw_n49_user_unit_releitura.png), [LCD](capturas/ls_n03z_lcd_7407_nm3h.png) |
 | Indicação de vazão no LCD e por HART | **APROVADO** | [LCD 50 %](capturas/lasecsimul_24_fe02_final_50_lcd_nm3h_zoom.png), [PV 100 %](capturas/pactware_66_fe02_pv_100_nm3h.png) |
 | Edição do ponto e do modo de corte pelo DTM | **LIMITAÇÃO DO DTM 3.03** — a tela não expõe esses parâmetros; o LD301 aceita Command 157 (valor em %) e Command 191 (Hard/Bumpless), com releitura por Command 156. O padrão desta atividade continua 6 % / Hard. | [25 %](capturas/pactware_67_fe02_pv_25_corte_zero.png), [26 %](capturas/lasecsimul_31_fe02_valvula_26_acima_corte.png); comandos validados em `core/test/core/protocols/HartLd301Test.cpp` |
-| Persistência da configuração online no arquivo | **LIMITAÇÃO CONHECIDA** — os parâmetros HART pertencem ao estado do transmissor em execução; reconstruir a simulação reinicializa o estado conforme o `.lsproj`. O arquivo PACTware guarda a árvore/porta, não os parâmetros do dispositivo. Reaplique a sequência online após reconstrução. | [reconstrução](capturas/lasecsimul_26_reconstrucao_restaura_ld301_fecha_modem.png) |
+| Persistência da configuração HART no `.lsproj` | **CORRIGIDO** — Salvar no LasecSimul copia as propriedades atuais do LD301 interno; a captura também ocorre antes de reconstruir o circuito. Use Ctrl+S após parametrizar pelo PACTware para gravar o arquivo em disco. O projeto `.PW5` do PACTware guarda a árvore e a porta, não substitui o `.lsproj`. | Regressão save/reopen de Sqrt e cutoff em `core/test/core/protocols/HartLd301Test.cpp`; auditoria LD301: 256 verificações, 0 falhas |
 | Correção da extensão nas outras máquinas | **CORRIGIDO NO EMPACOTADOR** — `scripts/package-release.js` agora inclui `project/schema/block-library` em `bundled/` e interrompe o empacotamento se a biblioteca faltar. A correção chega às máquinas com a próxima versão empacotada da extensão. | Oficina 03, Etapa 01 |
 | Dimensões físicas das placas e conformidade ISO | **FORA DO ESCOPO** — leitura por foto; D < 50 mm; uso didático | folhas de dados |
 
@@ -937,7 +939,7 @@ Ao final da primeira execução, a desconexão do canal `COM20` travou em 67 % (
 | Blocos do modelo interno aparecem como "?" e mostradores ficam em 0 | atualize para uma versão empacotada após 22/10/2026; confirme `bundled/project/schema/block-library` e recarregue a janela | versões anteriores não incluíam a biblioteca `sl.*`; o empacotador agora exige e instala os JSON necessários |
 | Planta não altera ΔP | simulação rodando; slider 0–100; aguardar 5 s; `Qmax` e geometria | testar o mesmo ponto no Python |
 | Valor do slider vira 100 ao digitar | apagar o conteúdo antes de digitar | o campo limita a 0–100 e anexa o texto |
-| LD301 voltou para URV 3376,3 e linear | houve edição/reconstrução do esquema? | comportamento esperado ao reconstruir: reconecte e reaplique a sequência online dos Passos 02 a 06 |
+| Parâmetros HART não aparecem ao reabrir o `.lsproj` | o projeto LasecSimul foi salvo depois das alterações online? | use Ctrl+S / Salvar no LasecSimul; salvar apenas o `.PW5` do PACTware não grava a configuração no `.lsproj` |
 | Connect no COM20 parado em 67 % | o modem do LasecSimul está em **Abrir** (fechado) ou a simulação foi parada antes de desconectar | inicie a simulação, deixe o modem em **Fechar** (porta aberta), desconecte o LD301 e depois o COM20; se preso, force o fechamento e reconecte COM20 antes do LD301 |
 | COM20 em negrito sem verde e DTM Disconnected | Connect feito antes de abrir o modem | Disconnect no LD301 e no COM20 (forçar = Yes), depois Connect no COM20 (verde) e no LD301 |
 | Canal verde e LD301 Disconnected | modem **Aberto**? Disconnect/Connect no LD301 | observação do professor; resolveu na sessão anterior |
