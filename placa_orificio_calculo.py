@@ -1,7 +1,7 @@
 """
 Cálculo de vazão em placa de orifício (ISO 5167-2) para conferir a simulação do LasecSimul.
 
-Projeto: placa_orificio_ld301.lsproj (e as cópias placa_orificio_FE_*_calculada.lsproj),
+Projeto: lasecsimul/placa_orificio_ld301.lsproj (e as cópias lasecsimul/placa_orificio_FE_*_calculada.lsproj),
 planta "Placa de orifício (vazão por ΔP)".
 O script usa as MESMAS equações e os MESMOS ajustes da planta. Com os mesmos valores, ele chega à
 mesma vazão mostrada no display "Vazão" da simulação.

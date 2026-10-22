@@ -1,8 +1,8 @@
 """Cria uma cópia LasecSimul com os dados de uma das placas da prática.
 
 Exemplo: python python/preparar_placa_lasecsimul.py FE-02-AR
-A cópia parte de placa_orificio_ld301.lsproj e altera somente as propriedades
-exportadas da instância da placa. O transmissor LD301 permanece com sua
+A cópia parte de lasecsimul/placa_orificio_ld301.lsproj, é gravada em
+lasecsimul/ e altera somente as propriedades exportadas da instância da placa. O transmissor LD301 permanece com sua
 parametrização original; LRV, URV, raiz, User Unit e display devem ser gravados
 e relidos online pelo PACTware.
 """
@@ -14,7 +14,8 @@ import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE = ROOT / "placa_orificio_ld301.lsproj"
+PASTA = ROOT / "lasecsimul"
+SOURCE = PASTA / "placa_orificio_ld301.lsproj"
 RHO_AR = 3.5808630809926583  # kg/m³: ar seco a 20 °C e 301,325 kPa abs (folhas de dados)
 # placa: (D [mm], d [mm], Qmax nas condições de operação [m³/h] = Qn,max·ρn/ρ1)
 VALUES = {
@@ -30,7 +31,7 @@ def main() -> None:
     parser.add_argument("--substituir-gerado", action="store_true", help="Atualiza um arquivo *_calculada.lsproj já gerado por este script")
     args = parser.parse_args()
     D, d, qmax = VALUES[args.placa]
-    output = ROOT / f"placa_orificio_{args.placa.replace('-', '_')}_calculada.lsproj"
+    output = PASTA / f"placa_orificio_{args.placa.replace('-', '_')}_calculada.lsproj"
     if output.exists() and not args.substituir_gerado:
         parser.error(f"O destino já existe; preservado: {output.name}")
     project = json.loads(SOURCE.read_text(encoding="utf-8"))

@@ -116,7 +116,7 @@ def folha(placa: dict) -> str:
     if placa["principal"]:
         observado = (
             "Os valores **observados** na execução real (LasecSimul rodando e LD301 lido pelo PACTware) estão no "
-            "[README, Oficina 05](README.md#oficina-05), com as capturas de cada ponto. Esta folha contém apenas "
+            "[README, Oficina 05](../README.md#oficina-05), com as capturas de cada ponto. Esta folha contém apenas "
             "dados lidos na plaqueta, dados estipulados e valores calculados.")
     else:
         observado = (
@@ -137,11 +137,11 @@ def folha(placa: dict) -> str:
         extra = f"""
 ## 9. Atividade do aluno
 
-1. Abra a foto [imagens/{placa['foto']}](imagens/{placa['foto']}) e confira cada valor da seção 1. Anote o que é lido e o que é calculado.
+1. Abra a foto [imagens/{placa['foto']}](../imagens/{placa['foto']}) e confira cada valor da seção 1. Anote o que é lido e o que é calculado.
 2. Sem olhar as seções 3 e 6, calcule ρₙ, ρ₁, Q₁,max, β, área do furo, Re_D, C, ε, ΔPmax e URV.
 3. Execute o comando da seção 3 no terminal e compare a saída com o seu cálculo. Faça uma captura do terminal.
 4. Gere a cópia do projeto com `python python/preparar_placa_lasecsimul.py {placa['tag']} --substituir-gerado` (ou edite as **Propriedades exportadas** à mão, conforme a seção 4) e confira o painel de propriedades antes de rodar.
-5. Abra `placa_orificio_{slug}_calculada.lsproj` e rode a simulação. Clique **Abrir** no modem do LasecSimul. No PACTware, faça **Connect no modem COM20** (ícone verde) e só depois **Connect no LD301** (aba com `#` e **Connected**).
+5. Abra `lasecsimul/placa_orificio_{slug}_calculada.lsproj` e rode a simulação. Clique **Abrir** no modem do LasecSimul. No PACTware, faça **Connect no modem COM20** (ícone verde) e só depois **Connect no LD301** (aba com `#` e **Connected**).
 6. Parametrize o LD301 online conforme a seção 5, gravando e relendo cada página. Não use **Offline Parameterize** como prova de gravação.
 7. Preencha a tabela da seção 7 em 0%, 25%, 50% e 100% de abertura e explique o corte abrupto em 20% e 25%.
 8. Responda: {perguntas}
@@ -149,9 +149,9 @@ def folha(placa: dict) -> str:
 
     return f"""# Folha de dados — {placa['tag']}
 
-**Tipo:** {tipo}. **Revisão:** 22/10/2026. **Serviço estipulado para a prática:** medição de vazão de ar seco em bancada simulada. **Foto de identificação:** [imagens/{placa['foto']}](imagens/{placa['foto']}).
+**Tipo:** {tipo}. **Revisão:** 22/10/2026. **Serviço estipulado para a prática:** medição de vazão de ar seco em bancada simulada. **Foto de identificação:** [imagens/{placa['foto']}](../imagens/{placa['foto']}).
 
-![Plaqueta da placa {placa['tag']}](imagens/{placa['foto']})
+![Plaqueta da placa {placa['tag']}](../imagens/{placa['foto']})
 
 **Como ler a origem de cada valor:** **[P]** lido na plaqueta fotografada; **[E]** dado de processo estipulado para a prática, conforme pedido do professor; **[C]** calculado a partir de [P] e [E]; **[O]** observado na tela de uma ferramenta durante a execução.
 
@@ -214,7 +214,7 @@ Para outro ponto, troque `--valvula 100` pela abertura desejada. O quadro das tr
 
 ## 4. Ajustes no LasecSimul (aplicar na cópia do projeto)
 
-Use `placa_orificio_{slug}_calculada.lsproj`, gerado por `python python/preparar_placa_lasecsimul.py {placa['tag']}`, ou edite as **Propriedades exportadas** da placa numa cópia do projeto:
+Use `lasecsimul/placa_orificio_{slug}_calculada.lsproj`, gerado por `python python/preparar_placa_lasecsimul.py {placa['tag']}`, ou edite as **Propriedades exportadas** da placa numa cópia do projeto:
 
 | Propriedade | Valor | Propriedade | Valor |
 |---|---:|---|---:|
@@ -264,11 +264,11 @@ Faixa de aplicação da ISO 5167-2 para placa com tomadas de canto, comparada co
 {extra}
 ## Fontes
 
-- [Foto da placa no projeto](imagens/{placa['foto']}).
+- [Foto da placa no projeto](../imagens/{placa['foto']}).
 - ISO 5167-2:2022 — [escopo oficial](https://www.iso.org/standard/79180.html) e [prévia do texto, §§ 5.1.8 e 5.3.1](https://cdn.standards.iteh.ai/samples/79180/1029711dc5e5474f8c079fffcf5b6b3b/ISO-5167-2-2022.pdf).
 - [NIST — condições de referência de gás](https://www.nist.gov/pml/owm/metric-si/unit-conversion/pressure-and-gas-flow-unit-conversions).
-- SMAR, manual do LD301, cópia local [MANUAL_LD301.pdf](MANUAL_LD301.pdf): Tabela 3.1 (unidades), Unidade do Usuário, função RAIZ e ponto de corte, display; tabela de faixas do sensor.
-- [Código de cálculo usado nesta folha](placa_orificio_calculo.py) e [gerador desta folha](python/gerar_folhas_dados.py).
+- SMAR, manual do LD301, cópia local [docs/MANUAL_LD301.pdf](../docs/MANUAL_LD301.pdf): Tabela 3.1 (unidades), Unidade do Usuário, função RAIZ e ponto de corte, display; tabela de faixas do sensor.
+- [Código de cálculo usado nesta folha](../placa_orificio_calculo.py) e [gerador desta folha](../python/gerar_folhas_dados.py).
 """
 
 
@@ -292,8 +292,8 @@ def main() -> None:
         pass
     resumo()
     for placa in PLACAS:
-        destino = ROOT / f"FOLHA_DADOS_{placa['tag'].replace('-', '_')}.md"
-        # Os links da folha são relativos à raiz do projeto.
+        destino = ROOT / "folhas_de_dados" / f"FOLHA_DADOS_{placa['tag'].replace('-', '_')}.md"
+        # A folha fica em folhas_de_dados/; seus links sobem um nível (../).
         destino.write_text(folha(placa), encoding="utf-8")
         print("Gravada:", destino.name)
 
