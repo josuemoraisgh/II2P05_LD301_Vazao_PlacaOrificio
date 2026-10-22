@@ -498,7 +498,7 @@ Para separar "migração errada" de "instalação incompleta", criou-se um proje
 <a id="oficina-03-etapa-03"></a>
 ### Etapa 03 — Rodar a planta e validar a resposta
 
-**Como mudar a abertura.** Clique no slider (à esquerda), expanda **Properties** e clique duas vezes no campo **Valor do sinal**. Apague o conteúdo com `Backspace`, digite o novo valor e pressione `Enter`. O campo limita o valor a 0–100: se você digitar sem apagar, "50" + "100" vira 100. Aguarde pelo menos 5 s, pois o atraso é de 1 s. **Não** pressione `Delete` ou `Backspace` com o slider selecionado no desenho: isso apaga o componente e reconstrói a simulação (veja a [observação na Oficina 05](#o05-reconstrucao)).
+**Como mudar a abertura.** Clique no slider, expanda **Properties** e edite **Valor do sinal** entre 0 e 100. Apague o conte?do antes de digitar e aguarde pelo menos 5 s, pois o atraso da planta ? de 1 s. Evite pressionar `Delete` ou `Backspace` com o slider selecionado para n?o excluir o componente.
 
 ![FE-02-AR rodando a 0 %: vazão e ΔP em zero, com os parâmetros da FE-02-AR à direita.](capturas/lasecsimul_14_fe02_valvula_0.png)
 
@@ -790,17 +790,6 @@ O transmissor simulado guarda `sqrtCutoff.point = 6` e `sqrtCutoff.mode = Hard` 
 *[O]: o LCD alterna **7.407 Nm3/h** e **11.901 mA**; o amperímetro indica **11,90 mA**. A indicação de vazão no display está confirmada.*
 
 5. Grave o projeto PACTware com **File → Save** para guardar a árvore de comunicação e a porta. Depois de qualquer alteração online no LD301, use **Ctrl+S / Salvar** no LasecSimul: os parâmetros HART atuais do transmissor interno são copiados para o `.lsproj`.
-
-<a id="o05-reconstrucao"></a>
-> **Histórico do problema de persistência (corrigido).** Na primeira execução, antes da correção, um `Backspace` enviado com o slider selecionado apagou o componente; o `Ctrl+Z` reconstruiu a simulação e o LD301 voltou à configuração original do `.lsproj` (linear, URV 3376,3). As capturas abaixo documentam esse comportamento anterior à correção.
->
-> Agora, ao salvar o projeto no LasecSimul, as propriedades HART atuais do LD301 interno são copiadas para os overrides da instância no `.lsproj`. A captura também ocorre antes de reconstruir a simulação, preservando os valores na sessão e marcando o projeto como alterado. Para persistir no arquivo em disco, pressione **Ctrl+S / Salvar** no LasecSimul após configurar o LD301 pelo PACTware. **File → Save** no PACTware continua salvando somente a árvore de comunicação e a porta.
->
-> A regressão de save/reopen verifica a função Sqrt e o cutoff Hard de 6 %; a auditoria LD301 passou com 256 verificações e zero falhas (`core/test/core/protocols/HartLd301Test.cpp`).
->
-> ![LasecSimul após a reconstrução na execução anterior à correção: modem fechado e LD301 de volta à configuração do arquivo.](capturas/lasecsimul_26_reconstrucao_restaura_ld301_fecha_modem.png)
->
-> ![Releitura online após a reconstrução na execução anterior à correção: URV voltou a 3376,3000.](capturas/pactware_65_releitura_apos_reconstrucao_urv_3376.png)
 
 <a id="o05-p09"></a>
 #### 🔹 Passo 07 — Verificar a indicação em vários pontos
