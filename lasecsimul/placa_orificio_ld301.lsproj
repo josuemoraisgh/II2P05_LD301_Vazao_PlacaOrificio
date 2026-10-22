@@ -5387,8 +5387,7 @@
         "c_inst"
       ],
       "origin": {
-        "typeId": "subcircuits.local.orifice_flow_dp",
-        "file": "placa_orificio_dp.lssubcircuit"
+        "typeId": "subcircuits.local.orifice_flow_dp"
       }
     }
   ]
