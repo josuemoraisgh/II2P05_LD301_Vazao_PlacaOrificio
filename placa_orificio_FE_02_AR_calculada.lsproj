@@ -40,7 +40,7 @@
       "id": "component-1791289285255-920511",
       "typeId": "meters.ampmeter",
       "properties": {
-        "resistance": 1e-06
+        "resistance": 0.000001
       },
       "label": "Ampmeter-1",
       "showValue": false,
@@ -475,9 +475,9 @@
   },
   "visual": {
     "viewport": {
-      "x": 380.9766489382654,
-      "y": 61.570014440372915,
-      "zoom": 0.48203280952018823
+      "zoom": 0.6529908457607518,
+      "x": 653.1917526924958,
+      "y": 64.32260025118666
     },
     "wireRoutes": "explicit"
   },
