@@ -417,63 +417,9 @@ Os arquivos legados (projetos intermediários, backups de migração, manual dup
 
 **Competência:** configurar a placa na simulação e comprovar que a planta responde antes de parametrizar o transmissor.
 
+
 <a id="oficina-03-etapa-01"></a>
-### Etapa 01 — Verificar se a instalação do LasecSimul mostra a planta
-
-Esta etapa registra o problema encontrado ("planta zerada"), o teste que isolou a causa e a correção aplicada. Em outra máquina do laboratório, faça só a verificação do Passo 04. Se os blocos aparecerem como "?", aplique a correção.
-
-#### 🔹 Passo 01 — Sintoma observado antes da correção
-
-![Sessão anterior: slider com Valor do sinal 50, mas a válvula desenhada em 0 % e a vazão em 0,00 m³/h.](capturas/lasecsimul_05_slider_50_saida_zero.png)
-
-*Captura da sessão anterior [O], projeto principal: o slider está em 50, mas a válvula desenhada indica 0 % e todos os mostradores indicam zero.*
-
-![Cópia FE-02-AR rodando a 50 % antes da correção: todos os mostradores da planta em zero, enquanto o amperímetro do LD301 indica 5,329 mA.](capturas/lasecsimul_10_fe02_antes_mostradores_zerados_ld301_responde.png)
-
-*Captura desta sessão [O], antes da correção: a cópia FE-02-AR roda a 50 % e todos os mostradores da planta indicam 0. **O LD301, porém, responde:** com a configuração original (linear, URV 3376,3), 5,329 mA corresponde a ΔP = (5,329 − 4)/16 × 3376,3 = 280,4 mmH₂O, exatamente o ΔP calculado para 50 % (280,5). Conclusão: o motor de simulação calculava a placa; só os mostradores, ligados aos blocos `sl.*`, não recebiam valores.*
-
-![Modelo interno da placa aberto pelo menu de contexto: dezenas de blocos aparecem como caixas tracejadas com "?".](capturas/lasecsimul_09_modelo_migrado_blocos_ausentes.png)
-
-*Captura da sessão anterior [O]: botão direito na placa → **Abrir Modelo Interno**. As constantes `control.constant` são desenhadas normalmente, mas os blocos `sl.fcn`, `sl.mux`, `sl.gain` e `sl.discrete_transfer_fcn` aparecem como "?" (tipo desconhecido para a interface).*
-
-#### 🔹 Passo 02 — Teste discriminante
-
-Para separar "migração errada" de "instalação incompleta", criou-se um projeto de teste temporário (não mantido no repositório). Ele continha dois blocos `sl.gain` novos **fora** da placa, ligados às saídas `flow` e `dp`, cada um com um mostrador.
-
-![Projeto de teste aberto: os dois blocos sl.gain adicionados no nível principal também aparecem como "?".](capturas/lasecsimul_11_teste_sl_gain_sem_biblioteca.png)
-
-*Captura real [O]: projeto de teste aberto, simulação parada. Os dois `sl.gain` recém-criados, que não passaram por migração, também aparecem como "?". O problema atinge qualquer bloco `sl.*`, portanto não é da migração da placa.*
-
-#### 🔹 Passo 03 — Causa identificada
-
-- Em `out/catalog/blockLibraryLoader.js`, a extensão registra os blocos `sl.*` lendo `bundled/project/schema/block-library/*.json`.
-- No pacote 0.0.100 instalado, essa pasta **não existe**. Só existe `bundled/project/schema/component-catalog.json`.
-- O motor (`lasecsimul-core.exe`) embute a mesma especificação e executa os blocos. As 2134 linhas significativas dos 13 arquivos do repositório-fonte do LasecSimul (versão 0.0.100) foram encontradas, sem exceção, dentro do executável.
-- Sem as entradas de catálogo, a interface desenha "?" e a extensão não lê os valores desses blocos. Os mostradores ligados a eles ficam no valor estático 0, embora o motor calcule.
-
-#### 🔹 Passo 04 — Correção aplicada e verificação
-
-1. Feche as simulações abertas.
-2. Copie os 13 arquivos da biblioteca de blocos do repositório-fonte do LasecSimul para a pasta da extensão instalada (PowerShell, nesta máquina):
-
-   ```powershell
-   $dst = "$env:USERPROFILE\.vscode\extensions\josuemoraisgh.lasecsimul-0.0.100\bundled\project\schema\block-library"
-   New-Item -ItemType Directory -Force $dst
-   Copy-Item "C:\SourceCode\LasecSimul\project\schema\block-library\*.json" $dst
-   ```
-
-   Os arquivos são `attributes`, `continuous`, `discontinuities`, `discrete`, `logic`, `lookup`, `math`, `pid-continuous`, `pid-discrete`, `routing`, `sinks`, `sources` e `userdefined` (`.json`). Para desfazer, apague a pasta `block-library` criada.
-3. No VS Code: `Ctrl+Shift+P` → **Desenvolvedor: Recarregar a Janela**.
-4. Abra a cópia FE-02-AR, rode, clique com o botão direito na placa → **Abrir Modelo Interno** e confira se os blocos têm nome e ligações.
-
-![Modelo interno da placa depois da correção: blocos Fcn, Mux e Gain desenhados com nome e ligações, sem "?".](capturas/lasecsimul_15_modelo_interno_blocos_reconhecidos.png)
-
-*Captura real [O] depois da correção: os mesmos blocos agora aparecem como **Fcn**, **Mux**, **Gain** e **Discrete Transfer Fcn**. Volte ao esquema principal pela seta de navegação no topo.*
-
-> **Atenção para o professor e o técnico do laboratório.** A correção vale para esta máquina. Nas demais, repita o Passo 04 ou instale uma versão da extensão que traga `bundled/project/schema/block-library`. Convém reportar a ausência ao mantenedor do LasecSimul.
-
-<a id="oficina-03-etapa-02"></a>
-### Etapa 02 — Configurar a placa FE-02-AR
+### Etapa 01 — Configurar a placa FE-02-AR
 
 #### 🔹 Passo 01 — Gerar e abrir a cópia de trabalho
 
@@ -495,8 +441,8 @@ Para separar "migração errada" de "instalação incompleta", criou-se um proje
 
 *Depois [O]: D = 15,8; d = 6,255; Canto; 44 D; 8 D; aço carbono; AISI 316; 20 °C; Gás; ρ = 3,5808630809…; μ = 0,0181; κ = 1,4; p₁ = 200; Qmax = 5,413291324; desvio "Não aplicar". São os valores da folha. Estas duas capturas são da sessão anterior, **antes** da correção da Etapa 01; por isso os mostradores aparecem em zero. A resposta correta está na Etapa 03.*
 
-<a id="oficina-03-etapa-03"></a>
-### Etapa 03 — Rodar a planta e validar a resposta
+<a id="oficina-03-etapa-02"></a>
+### Etapa 02 — Rodar a planta e validar a resposta
 
 **Como mudar a abertura.** Clique no slider, expanda **Properties** e edite **Valor do sinal** entre 0 e 100. Apague o conte?do antes de digitar e aguarde pelo menos 5 s, pois o atraso da planta ? de 1 s. Evite pressionar `Delete` ou `Backspace` com o slider selecionado para n?o excluir o componente.
 
