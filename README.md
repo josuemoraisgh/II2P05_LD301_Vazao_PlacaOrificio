@@ -91,15 +91,11 @@ O PACTware é a aplicação de configuração. O DTM (*Device Type Manager*) é 
 
 Para escoamento permanente, incompressível, horizontal e sem perdas, Bernoulli entre a seção a montante e a seção contraída dá:
 
-\[
-P_1+\frac{\rho V_1^2}{2}=P_2+\frac{\rho V_2^2}{2}.
-\]
+$$P_1+\frac{\rho V_1^2}{2}=P_2+\frac{\rho V_2^2}{2}.$$
 
 A continuidade entre o tubo de diâmetro interno `D` e o orifício de diâmetro `d` dá `V₁ = β²V₂`, com `β = d/D`. Definindo `ΔP = P₁ − P₂`:
 
-\[
-V_2=\sqrt{\frac{2\Delta P}{\rho(1-\beta^4)}}.
-\]
+$$V_2=\sqrt{\frac{2\Delta P}{\rho(1-\beta^4)}}.$$
 
 O termo `1 − β⁴` vem da velocidade não nula no tubo a montante.
 
@@ -107,10 +103,8 @@ O termo `1 − β⁴` vem da velocidade não nula no tubo a montante.
 
 A equação prática inclui o coeficiente de descarga `C` e, para gases, o fator de expansibilidade `ε`:
 
-\[
-Q=C\varepsilon\frac{\pi d^2}{4}\sqrt{\frac{2\Delta P}{\rho(1-\beta^4)}},\qquad
-\Delta P=\frac{8\rho(1-\beta^4)Q^2}{C^2\varepsilon^2\pi^2d^4}.
-\]
+$$Q=C\varepsilon\frac{\pi d^2}{4}\sqrt{\frac{2\Delta P}{\rho(1-\beta^4)}},\qquad$$
+$$\Delta P=\frac{8\rho(1-\beta^4)Q^2}{C^2\varepsilon^2\pi^2d^4}.$$
 
 `Q` é a vazão volumétrica nas condições de operação (m³/s), `ρ` a massa específica a montante (kg/m³), `ΔP` em Pa, e os diâmetros em metros. Para líquidos, `ε = 1`. Para gases, o modelo usa a expressão da ISO 5167-2, que depende de `β`, de `p₂/p₁` (pressões absolutas) e do expoente isentrópico `κ`.
 
@@ -120,9 +114,9 @@ Mantidos os demais termos, `ΔP ∝ Q²`: metade da vazão produz cerca de um qu
 
 O Python e a planta usam a equação de Reader–Harris/Gallagher para `C`, com tomada, `β`, `Re_D` e o termo de tubo pequeno quando `D < 71,12 mm`. O número de Reynolds é:
 
-\[
+$$
 Re_D=\frac{4\rho Q}{\pi\mu D},
-\]
+$$
 
 com `μ` em Pa·s. Como `C` depende de `Re_D`, que depende de `Q`, obter `Q` a partir de `ΔP` exige iteração. O script parte de `C = 0,6` e repete o cálculo até convergir (no máximo 50 iterações). No caminho direto (abertura → vazão → ΔP), `C` sai direto e só `ε` é iterado.
 
