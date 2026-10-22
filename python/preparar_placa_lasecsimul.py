@@ -36,6 +36,28 @@ def main() -> None:
         parser.error(f"O destino já existe; preservado: {output.name}")
     project = json.loads(SOURCE.read_text(encoding="utf-8"))
     wrapper = next(c for c in project["components"] if "orifice_flow_dp" in c.get("typeId", ""))
+    if wrapper.get("typeId") != "subsystem.local.orifice_flow_dp":
+        parser.error(f"O projeto-base deve usar a definição local do subsistema; encontrado: {wrapper.get('typeId')}")
+    local_definition = next(
+        (item for item in project.get("subsystems", []) if item.get("typeId") == "subsystem.local.orifice_flow_dp"),
+        None,
+    )
+    if local_definition is None or not local_definition.get("components"):
+        parser.error("A definição local da placa não está incorporada em project['subsystems']")
+    local_types = {component.get("typeId") for component in local_definition["components"]}
+    required_new_blocks = {"sl.gain", "sl.fcn", "sl.mux", "sl.discrete_transfer_fcn"}
+    missing = sorted(required_new_blocks - local_types)
+    if missing:
+        parser.error(f"A definição local não foi migrada para os blocos atuais: {', '.join(missing)}")
+    legacy_wrappers = sorted(
+        type_id for type_id in local_types
+        if type_id and type_id.startswith("control.") and type_id != "control.constant"
+    )
+    if legacy_wrappers:
+        parser.error(f"A definição local ainda contém blocos de controle antigos: {', '.join(legacy_wrappers)}")
+    # A definição está incorporada no .lsproj. Não mantenha metadata que pareça uma
+    # dependência de um arquivo .lssubcircuit externo que não acompanha os projetos didáticos.
+    local_definition.pop("origin", None)
     properties = wrapper.setdefault("properties", {})
     for id_, value in {
         "c_D": D,

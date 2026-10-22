@@ -186,7 +186,7 @@ O subsistema **Placa de orifício (vazão por ΔP)** recebe a abertura da válvu
 
 O modelo interno usa blocos da biblioteca equivalente ao Simulink (`sl.fcn`, `sl.mux`, `sl.gain`, `sl.discrete_transfer_fcn`) e constantes `control.constant`. As **Propriedades exportadas** do bloco da placa são `D`, `d`, tomada, trechos retos, materiais, temperatura, fluido, `ρ`, `μ`, `κ`, `p1`, `Qmax` e desvio didático.
 
-**Histórico do modelo.** A versão do projeto gravada no git usava blocos antigos `control.calc_expression`. Ao abrir o projeto, a extensão migrou automaticamente 43 blocos para `sl.*` (o original continua no primeiro commit do repositório). O modelo migrado é idêntico ao modelo de referência distribuído com a extensão (`bundled/subcircuits/process_orifice_flow_dp.lssubcircuit`): componentes, ligações, interface e símbolo coincidem. A migração estava correta. O defeito estava na instalação da extensão, como mostra a [Oficina 03](#oficina-03).
+**Histórico e formato do modelo.** A versão antiga do projeto usava blocos `control.calc_expression`. A extensão migrou os 43 blocos para a biblioteca atual `sl.*`. Os três arquivos de placa distribuídos aqui guardam uma cópia completa do subsistema em `project.subsystems`, com identidade `subsystem.local.orifice_flow_dp`; eles não dependem de um `.lssubcircuit` externo. O gerador agora valida a presença dos blocos atuais (`sl.gain`, `sl.fcn`, `sl.mux` e `sl.discrete_transfer_fcn`), rejeita wrappers antigos e remove metadata de procedência externa. A instalação da extensão também precisa incluir `bundled/project/schema/block-library` para a interface reconhecer esses blocos.
 
 <a id="teoria-python"></a>
 ## Python no projeto
@@ -916,14 +916,15 @@ Investigue por camada, do processo para o host:
 | Resposta da planta FE-02-AR (0/25/26/50/75/100 %) | **APROVADO** | Oficinas 03 e 05 |
 | Caso-base com água a 50 % | **APROVADO** | [captura](capturas/lasecsimul_37_caso_base_agua_valvula_50_corrigido.png) |
 | FE-09-AR e FE-01-AR na planta | **APROVADO** (planta); LD301 **não parametrizado** (exercício) | [FE-09](capturas/lasecsimul_34_fe09_valvula_100_verificacao.png), [FE-01](capturas/lasecsimul_36_fe01_valvula_100_verificacao.png) |
+| Blocos atuais e subsistema local nos três projetos de placa | **APROVADO** — `sl.*` e definição completa incorporada no `.lsproj`; sem dependência de `.lssubcircuit` externo | `lasecsimul/placa_orificio_FE_{02,09,01}_AR_calculada.lsproj`; gerador validado |
 | Montagem do PACTware desde o projeto vazio (Add device, duplo clique, COM20, Multimaster em etapa própria, Add LD301, salvar) | **APROVADO** | [início](capturas/pw_n01_pactware_aberto_host_pc.png), [COM20](capturas/pw_n08_com20_aplicada_multimaster_marcado.png), [Multimaster](capturas/pw_n10_multimaster_aplicado.png), [árvore](capturas/pw_n15_arvore_com20_ld301.png), [salvo](capturas/pw_n17_projeto_salvo.png) |
 | Modem aberto; Connect no modem COM20 e depois no LD301 | **APROVADO** | [modem](capturas/ls_n02_fe02_modem_aberto_fechar.png), [COM20 verde](capturas/pw_n35_modem_com20_conectado_verde.png), [Connected](capturas/pw_n37_ld301_connected_ft100.png) |
 | Ordem errada (Connect com o modem fechado) e recuperação | **REGISTRADO** — só reconectar o LD301 não bastou; foi preciso forçar o fechamento do COM20 e reconectar modem e dispositivo | [67 %](capturas/pw_n19_connect_com20_modem_fechado_preso_67.png), [Disconnected](capturas/pw_n30_dtm_aberto_antes_reconexao_disconnected.png), [forçar](capturas/pw_n32_canal_preso_forcar_fechamento.png) |
 | URV, Sqrt, User Unit e Display gravados e relidos online | **APROVADO** (duas execuções) | [releitura final](capturas/pw_n52_summary_releitura_final.png), [User Unit](capturas/pw_n49_user_unit_releitura.png), [LCD](capturas/ls_n03z_lcd_7407_nm3h.png) |
 | Indicação de vazão no LCD e por HART | **APROVADO** | [LCD 50 %](capturas/lasecsimul_24_fe02_final_50_lcd_nm3h_zoom.png), [PV 100 %](capturas/pactware_66_fe02_pv_100_nm3h.png) |
-| Edição do ponto e do modo de corte pelo DTM | **PENDENTE** — campos não encontrados nas páginas online do DTM 3.03; 6 % / Hard verificado só pelo comportamento | [25 %](capturas/pactware_67_fe02_pv_25_corte_zero.png), [26 %](capturas/lasecsimul_31_fe02_valvula_26_acima_corte.png) |
-| Persistência da configuração online no arquivo | **PENDENTE** — a reconstrução restaura o `.lsproj`; gravar o projeto não foi testado | [reconstrução](capturas/lasecsimul_26_reconstrucao_restaura_ld301_fecha_modem.png) |
-| Correção da extensão nas outras máquinas | **PENDENTE** — exige cópia da `block-library` ou nova versão do pacote | Oficina 03, Etapa 01 |
+| Edição do ponto e do modo de corte pelo DTM | **LIMITAÇÃO DO DTM 3.03** — a tela não expõe esses parâmetros; o LD301 aceita Command 157 (valor em %) e Command 191 (Hard/Bumpless), com releitura por Command 156. O padrão desta atividade continua 6 % / Hard. | [25 %](capturas/pactware_67_fe02_pv_25_corte_zero.png), [26 %](capturas/lasecsimul_31_fe02_valvula_26_acima_corte.png); comandos validados em `core/test/core/protocols/HartLd301Test.cpp` |
+| Persistência da configuração online no arquivo | **LIMITAÇÃO CONHECIDA** — os parâmetros HART pertencem ao estado do transmissor em execução; reconstruir a simulação reinicializa o estado conforme o `.lsproj`. O arquivo PACTware guarda a árvore/porta, não os parâmetros do dispositivo. Reaplique a sequência online após reconstrução. | [reconstrução](capturas/lasecsimul_26_reconstrucao_restaura_ld301_fecha_modem.png) |
+| Correção da extensão nas outras máquinas | **CORRIGIDO NO EMPACOTADOR** — `scripts/package-release.js` agora inclui `project/schema/block-library` em `bundled/` e interrompe o empacotamento se a biblioteca faltar. A correção chega às máquinas com a próxima versão empacotada da extensão. | Oficina 03, Etapa 01 |
 | Dimensões físicas das placas e conformidade ISO | **FORA DO ESCOPO** — leitura por foto; D < 50 mm; uso didático | folhas de dados |
 
 Ao final da primeira execução, a desconexão do canal `COM20` travou em 67 % ("PACTware action active") porque a simulação já tinha sido parada. Ela foi encerrada com **Cancel → Yes** e o PACTware foi fechado. A Oficina 04 foi então refeita do zero, com o PACTware aberto de novo.
@@ -933,11 +934,11 @@ Ao final da primeira execução, a desconexão do canal `COM20` travou em 67 % (
 
 | Sintoma | Verificações em ordem | Interpretação |
 |---|---|---|
-| Blocos do modelo interno aparecem como "?" e mostradores ficam em 0 | pasta `bundled/project/schema/block-library` na extensão; recarregar a janela | biblioteca de blocos `sl.*` ausente na instalação; o motor calcula, a interface não lê |
+| Blocos do modelo interno aparecem como "?" e mostradores ficam em 0 | atualize para uma versão empacotada após 22/10/2026; confirme `bundled/project/schema/block-library` e recarregue a janela | versões anteriores não incluíam a biblioteca `sl.*`; o empacotador agora exige e instala os JSON necessários |
 | Planta não altera ΔP | simulação rodando; slider 0–100; aguardar 5 s; `Qmax` e geometria | testar o mesmo ponto no Python |
 | Valor do slider vira 100 ao digitar | apagar o conteúdo antes de digitar | o campo limita a 0–100 e anexa o texto |
-| LD301 voltou para URV 3376,3 e linear | houve edição/reconstrução do esquema? | regravar pelo PACTware |
-| Connect no COM20 parado em 67 % | o modem do LasecSimul está em **Abrir** (fechado) | abra o modem; o canal não se recupera sozinho |
+| LD301 voltou para URV 3376,3 e linear | houve edição/reconstrução do esquema? | comportamento esperado ao reconstruir: reconecte e reaplique a sequência online dos Passos 02 a 06 |
+| Connect no COM20 parado em 67 % | o modem do LasecSimul está em **Abrir** (fechado) ou a simulação foi parada antes de desconectar | inicie a simulação, deixe o modem em **Fechar** (porta aberta), desconecte o LD301 e depois o COM20; se preso, force o fechamento e reconecte COM20 antes do LD301 |
 | COM20 em negrito sem verde e DTM Disconnected | Connect feito antes de abrir o modem | Disconnect no LD301 e no COM20 (forçar = Yes), depois Connect no COM20 (verde) e no LD301 |
 | Canal verde e LD301 Disconnected | modem **Aberto**? Disconnect/Connect no LD301 | observação do professor; resolveu na sessão anterior |
 | `Upload failed` | conexão do dispositivo feita antes de abrir o modem | reconectar o LD301 |
@@ -1012,7 +1013,7 @@ Valores [C] do script. O ponto de 50 % foi observado na planta corrigida (Oficin
 
 1. **FE-01-AR:** d = 15,673 mm e d/D = 0,7488 (antes 8,89 mm e 0,425). Folha e projeto recalculados. URV de 1123,2 para 80,5 mmH₂O.
 2. **Planta zerada:** causa identificada (biblioteca `block-library` ausente no pacote 0.0.100) e corrigida; resposta da planta comprovada. A afirmação anterior de que "a resposta da planta falhou" foi reinterpretada: o motor calculava, só a visualização falhava.
-3. **`preparar_placa_lasecsimul.py`:** deixou de trocar o modelo da placa pelo modelo antigo do backup. Agora parte do projeto principal (modelo `sl.*`, que funciona) e corrige d da FE-01-AR. As cópias `_compativel`, que dependiam desse modelo antigo, foram removidas.
+3. **`preparar_placa_lasecsimul.py`:** deixou de trocar o modelo da placa pelo modelo antigo do backup. Agora parte do projeto principal (modelo `sl.*`), valida os blocos novos e a definição local embutida, remove metadata de procedência externa e corrige d da FE-01-AR. As cópias `_compativel`, que dependiam do modelo antigo, foram removidas.
 4. **`placa_orificio_calculo.py`:** a saída mostra Q com 3 casas, ΔP em kPa com 4 casas e em mmH₂O e mmH₂O@20 °C. O cabeçalho aponta o projeto correto. Nenhuma equação mudou; o autoteste continua passando.
 5. **Folhas de dados:** origem de cada valor ([P]/[E]/[C]/[O]); Re, C e ε por ponto; páginas reais do DTM para cada parâmetro; seção de valores observados; verificação item a item dos limites da ISO; nota sobre mmH₂O@20 °C.
 6. **User Unit inicial:** estava **ligada** (243–800 mm), e não desligada como dizia o README anterior.
