@@ -477,7 +477,7 @@
       ],
       "workspaceSection": "process",
       "help": {
-        "description": "Medição de vazão com placa de orifício concêntrica (ISO 5167-2) e transmissor de pressão diferencial (LD301). A válvula de controle a jusante (pino, 0–100 %) impõe a vazão. C pela equação de Reader-Harris/Gallagher para tomadas de flange, D e D/2 ou de canto; ε pela ISO para gases (1 para líquidos); D e d corrigidos pela dilatação dos materiais. Saídas HIGH/LOW em mmH2O, com ΔP = 8ρ(1−β⁴)Q²/(C²ε²π²d⁴). Trechos retos (Tabela 3, uma curva de 90° a montante), rugosidade e faixa de validade da norma são verificados; um desvio didático opcional aumenta o C real quando a instalação foge da norma. Com os padrões (água a 20 °C, D 52,5 mm, d 31,5 mm, tomadas de flange, 15 m³/h) o ΔP a 100 % é ≈ 3376 mmH2O. Diâmetros, tomada, trechos retos, materiais, fluido e vazão máxima ficam em Propriedades Exportadas e mudam com a simulação rodando."
+        "description": "Medição de vazão com placa de orifício concêntrica (ISO 5167-2) e transmissor de pressão diferencial (LD301). A válvula de controle a jusante (pino, 0–100 %) impõe a vazão. C pela equação de Reader-Harris/Gallagher para tomadas de flange, D e D/2 ou de canto; ε pela ISO para gases (1 para líquidos); D e d corrigidos pela dilatação dos materiais. Saídas HIGH/LOW em mmH2O, com ΔP = 8ρ(1−β⁴)Q²/(C²ε²π²d⁴). Trechos retos (Tabela 3, uma curva de 90° a montante), rugosidade e faixa de validade da norma são verificados; um desvio didático opcional aumenta o C real quando a instalação foge da norma. Com os padrões (água a 20 °C, D 52,5 mm, d 31,5 mm, tomadas de flange, 15 m³/h) o ΔP a 100 % é ≈ 3376 mmH2O. Diâmetros, tomada, trechos retos, materiais, fluido e vazão volumétrica de operação a 100 % ficam em Propriedades Exportadas e mudam com a simulação rodando."
       },
       "components": [
         {
@@ -694,7 +694,7 @@
             "y": 820,
             "rotation": 0
           },
-          "label": "Vazão máxima (válvula 100 %)"
+          "label": "Vazão volumétrica de operação a 100 %"
         },
         {
           "id": "c_inst",

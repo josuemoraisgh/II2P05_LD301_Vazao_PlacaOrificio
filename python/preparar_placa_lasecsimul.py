@@ -25,36 +25,43 @@ VALUES = {
 }
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("placa", choices=VALUES)
-    parser.add_argument("--substituir-gerado", action="store_true", help="Atualiza um arquivo *_calculada.lsproj já gerado por este script")
-    args = parser.parse_args()
-    D, d, qmax = VALUES[args.placa]
-    output = PASTA / f"placa_orificio_{args.placa.replace('-', '_')}_calculada.lsproj"
-    if output.exists() and not args.substituir_gerado:
-        parser.error(f"O destino já existe; preservado: {output.name}")
+def preparar_placa(placa: str, substituir: bool = False) -> Path:
+    """Gera uma cópia de projeto com os parâmetros da placa escolhida.
+
+    @param placa Tag da placa cadastrada em ``VALUES``.
+    @param substituir Autoriza atualizar um arquivo de saída já existente.
+    @return Caminho do arquivo de projeto gravado.
+    @throws ValueError Quando a placa ou a estrutura do arquivo-base for inválida.
+    """
+    if placa not in VALUES:
+        raise ValueError(f"Placa desconhecida: {placa}")
+    D, d, qmax = VALUES[placa]
+    output = PASTA / f"placa_orificio_{placa.replace('-', '_')}_calculada.lsproj"
+    if output.exists() and not substituir:
+        raise FileExistsError(f"O destino já existe; preservado: {output.name}")
     project = json.loads(SOURCE.read_text(encoding="utf-8"))
-    wrapper = next(c for c in project["components"] if "orifice_flow_dp" in c.get("typeId", ""))
+    wrapper = next((c for c in project["components"] if "orifice_flow_dp" in c.get("typeId", "")), None)
+    if wrapper is None:
+        raise ValueError("Não foi encontrada a instância local da placa no projeto-base.")
     if wrapper.get("typeId") != "subsystem.local.orifice_flow_dp":
-        parser.error(f"O projeto-base deve usar a definição local do subsistema; encontrado: {wrapper.get('typeId')}")
+        raise ValueError(f"O projeto-base deve usar a definição local do subsistema; encontrado: {wrapper.get('typeId')}")
     local_definition = next(
         (item for item in project.get("subsystems", []) if item.get("typeId") == "subsystem.local.orifice_flow_dp"),
         None,
     )
     if local_definition is None or not local_definition.get("components"):
-        parser.error("A definição local da placa não está incorporada em project['subsystems']")
+        raise ValueError("A definição local da placa não está incorporada em project['subsystems']")
     local_types = {component.get("typeId") for component in local_definition["components"]}
     required_new_blocks = {"sl.gain", "sl.fcn", "sl.mux", "sl.discrete_transfer_fcn"}
     missing = sorted(required_new_blocks - local_types)
     if missing:
-        parser.error(f"A definição local não foi migrada para os blocos atuais: {', '.join(missing)}")
+        raise ValueError(f"A definição local não foi migrada para os blocos atuais: {', '.join(missing)}")
     legacy_wrappers = sorted(
         type_id for type_id in local_types
         if type_id and type_id.startswith("control.") and type_id != "control.constant"
     )
     if legacy_wrappers:
-        parser.error(f"A definição local ainda contém blocos de controle antigos: {', '.join(legacy_wrappers)}")
+        raise ValueError(f"A definição local ainda contém blocos de controle antigos: {', '.join(legacy_wrappers)}")
     # A definição está incorporada no .lsproj. Não mantenha metadata que pareça uma
     # dependência de um arquivo .lssubcircuit externo que não acompanha os projetos didáticos.
     local_definition.pop("origin", None)
@@ -80,7 +87,19 @@ def main() -> None:
         # Editar só as constantes do subcircuito embutido não atualiza este painel.
         properties[f"@{id_}.value"] = value
     output.write_text(json.dumps(project, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    print(output.name)
+    return output
+
+
+def main() -> None:
+    """Ponto de entrada histórico do preparador de projetos."""
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("placa", choices=VALUES)
+    parser.add_argument("--substituir-gerado", action="store_true", help="Atualiza um arquivo *_calculada.lsproj já gerado por este script")
+    args = parser.parse_args()
+    try:
+        print(preparar_placa(args.placa, args.substituir_gerado).name)
+    except (ValueError, FileExistsError) as erro:
+        parser.error(str(erro))
 
 
 if __name__ == "__main__":
